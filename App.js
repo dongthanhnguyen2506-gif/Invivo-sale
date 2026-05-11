@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 
-// ─── Paste Google Apps Script URL vào đây sau khi deploy ───
+// ─── CONFIG: Paste your Google Apps Script URL here after deploy ───
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
-// ────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
 
 const BRANCHES = ["Hà Nội", "Hồ Chí Minh"];
 
@@ -16,11 +16,11 @@ const VISIT_TYPES = ["Giới thiệu sản phẩm", "Follow-up", "Ký hợp đ�
 const RESULTS = ["Quan tâm - hẹn lại", "Đồng ý dùng thử", "Đã ký hợp đồng", "Từ chối", "Không gặp được"];
 
 const RESULT_TAG = {
-  "Đã ký hợp đồng":    { bg: "rgba(52,211,153,0.13)",  color: "#34d399" },
-  "Đồng ý dùng thử":   { bg: "rgba(79,110,247,0.13)",  color: "#7c9ef7" },
-  "Quan tâm - hẹn lại":{ bg: "rgba(251,191,36,0.13)",  color: "#fbbf24" },
-  "Từ chối":            { bg: "rgba(248,113,113,0.13)", color: "#f87171" },
-  "Không gặp được":     { bg: "rgba(100,116,139,0.13)", color: "#94a3b8" },
+  "Đã ký hợp đồng": { bg: "rgba(52,211,153,0.13)", color: "#34d399" },
+  "Đồng ý dùng thử": { bg: "rgba(79,110,247,0.13)", color: "#7c9ef7" },
+  "Quan tâm - hẹn lại": { bg: "rgba(251,191,36,0.13)", color: "#fbbf24" },
+  "Từ chối": { bg: "rgba(248,113,113,0.13)", color: "#f87171" },
+  "Không gặp được": { bg: "rgba(100,116,139,0.13)", color: "#94a3b8" },
 };
 
 export default function InVivoApp() {
@@ -76,11 +76,7 @@ export default function InVivoApp() {
     try {
       const payload = { ...entry };
       delete payload.photo; delete payload.photoPreview;
-      await fetch(APPS_SCRIPT_URL, {
-        method: "POST", mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      await fetch(APPS_SCRIPT_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     } catch (_) {}
   };
 
@@ -117,7 +113,7 @@ export default function InVivoApp() {
   const stats = {
     total: filtered.length,
     active: filtered.reduce((s, e) => s + (parseInt(e.activeCodes) || 0), 0),
-    positive: filtered.filter(e => ["Đồng ý dùng thử","Đã ký hợp đồng","Quan tâm - hẹn lại"].includes(e.result)).length,
+    positive: filtered.filter(e => ["Đồng ý dùng thử", "Đã ký hợp đồng", "Quan tâm - hẹn lại"].includes(e.result)).length,
     signed: filtered.filter(e => e.result === "Đã ký hợp đồng").length,
   };
 
@@ -128,8 +124,7 @@ export default function InVivoApp() {
     signed: filtered.filter(e => e.branch === b && e.result === "Đã ký hợp đồng").length,
   }));
 
-  const bySpecialty = SPECIALTIES
-    .map(s => ({ name: s, count: filtered.filter(e => e.specialty === s).length }))
+  const bySpecialty = SPECIALTIES.map(s => ({ name: s, count: filtered.filter(e => e.specialty === s).length }))
     .filter(x => x.count > 0).sort((a, b) => b.count - a.count).slice(0, 6);
 
   const allSales = [...new Set(entries.map(e => e.sale))];
@@ -154,7 +149,7 @@ export default function InVivoApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514", max_tokens: 1200,
-          messages: [{ role: "user", content: `Bạn là chuyên gia phân tích kinh doanh cho Invivo Lab. Dữ liệu:\n\n${dataStr}\n\nViết báo cáo tiếng Việt cho CEO gồm:\n1. TỔNG QUAN: lượt thăm, mã active, tỷ lệ chuyển đổi\n2. SO SÁNH HN vs HCM\n3. TOP HIỆU SUẤT: sale nổi bật, chuyên khoa tiềm năng\n4. RỦI RO cần chú ý\n5. HÀNH ĐỘNG: 3 việc cụ thể tuần tới\n\nSúc tích, có số liệu thực tế.` }]
+          messages: [{ role: "user", content: `Bạn là chuyên gia phân tích kinh doanh cấp cao cho Invivo Lab. Dữ liệu:\n\n${dataStr}\n\nViết báo cáo tiếng Việt cho CEO gồm:\n1. TỔNG QUAN: lượt thăm, mã active, tỷ lệ chuyển đổi\n2. SO SÁNH HN vs HCM: điểm mạnh/yếu từng chi nhánh\n3. TOP HIỆU SUẤT: sale nổi bật, chuyên khoa tiềm năng\n4. RỦI RO: điểm yếu cần chú ý ngay\n5. HÀNH ĐỘNG: 3 việc cụ thể cần làm trong tuần tới\n\nSúc tích, có số liệu thực tế.` }]
         })
       });
       const json = await resp.json();
@@ -190,6 +185,8 @@ export default function InVivoApp() {
         .ai-box{background:#050d1a;border:1px solid #122038;border-radius:10px;padding:18px;white-space:pre-wrap;font-size:13px;line-height:1.82;color:#a8b8d0}
         .rbtn{padding:7px 13px;border-radius:18px;border:1px solid;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
         .sec{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#2e3860;margin-bottom:14px}
+        .hn{background:rgba(251,191,36,.1);color:#fbbf24}
+        .hcm{background:rgba(79,110,247,.12);color:#7c9ef7}
         .bb2{height:1px;background:#101828;margin:16px 0}
         .photo-drop{border:2px dashed #1c2a45;border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:border-color .2s}
         .photo-drop:hover{border-color:#4f6ef7}
@@ -215,9 +212,7 @@ export default function InVivoApp() {
         </div>
       </div>
 
-      {submitted && (
-        <div className="toast">✓ Đã ghi nhận · {scriptConfigured ? "Đã sync Google Sheet" : "Lưu tạm trên trình duyệt"}</div>
-      )}
+      {submitted && <div className="toast">✓ Đã ghi nhận · {scriptConfigured ? "Đã sync Google Sheet" : "Lưu tạm trên máy"}</div>}
 
       <div style={{ maxWidth:940, margin:"0 auto", padding:"26px 20px" }}>
 
@@ -228,7 +223,9 @@ export default function InVivoApp() {
               <h1 style={{ fontSize:21, fontWeight:900, letterSpacing:"-.025em" }}>Báo cáo hoạt động Sale</h1>
               <p style={{ color:"#353e62", fontSize:13, marginTop:3 }}>Điền sau mỗi lần thăm khách hàng</p>
             </div>
+
             <div className="card">
+              {/* Branch + Sale */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:13, marginBottom:13 }}>
                 <div>
                   <label className="lbl">Chi nhánh *</label>
@@ -238,18 +235,21 @@ export default function InVivoApp() {
                   </select>
                 </div>
                 <div>
-                  <label className="lbl">NVKD phụ trách *</label>
+                  <label className="lbl">Sale phụ trách *</label>
                   <select className="fi" value={form.sale} onChange={e=>handleChange("sale",e.target.value)} disabled={!form.branch}>
-                    <option value="">-- Chọn NVKD --</option>
+                    <option value="">-- Chọn Sale --</option>
                     {(SALE_BY_BRANCH[form.branch]||[]).map(s=><option key={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
+
               <div style={{ marginBottom:13 }}>
                 <label className="lbl">Ngày thăm *</label>
                 <input type="date" className="fi" value={form.date} onChange={e=>handleChange("date",e.target.value)} />
               </div>
+
               <div className="bb2" />
+
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:13, marginBottom:13 }}>
                 <div style={{ gridColumn:"span 2" }}>
                   <label className="lbl">Tên khách hàng / Bác sĩ *</label>
@@ -271,7 +271,9 @@ export default function InVivoApp() {
                   <input className="fi" placeholder="Số nhà, đường, quận..." value={form.address} onChange={e=>handleChange("address",e.target.value)} />
                 </div>
               </div>
+
               <div className="bb2" />
+
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:13, marginBottom:13 }}>
                 <div>
                   <label className="lbl">Loại hoạt động</label>
@@ -285,25 +287,24 @@ export default function InVivoApp() {
                   <input type="number" className="fi" placeholder="0" min="0" value={form.activeCodes} onChange={e=>handleChange("activeCodes",e.target.value)} />
                 </div>
               </div>
+
               <div style={{ marginBottom:14 }}>
                 <label className="lbl">Kết quả thăm *</label>
                 <div style={{ display:"flex", gap:7, flexWrap:"wrap", marginTop:5 }}>
                   {RESULTS.map(r=>{
                     const tag = RESULT_TAG[r];
                     const active = form.result===r;
-                    return (
-                      <button key={r} className="rbtn" onClick={()=>handleChange("result",r)}
-                        style={{ background:active?tag.bg:"transparent", borderColor:active?tag.color:"#1e2a45", color:active?tag.color:"#454e6e" }}>
-                        {r}
-                      </button>
-                    );
+                    return <button key={r} className="rbtn" onClick={()=>handleChange("result",r)}
+                      style={{ background:active?tag.bg:"transparent", borderColor:active?tag.color:"#1e2a45", color:active?tag.color:"#454e6e" }}>{r}</button>;
                   })}
                 </div>
               </div>
+
               <div style={{ marginBottom:14 }}>
                 <label className="lbl">Ghi chú</label>
                 <textarea className="fi" rows={3} placeholder="Phản hồi KH, bước tiếp theo..." value={form.notes} onChange={e=>handleChange("notes",e.target.value)} style={{ resize:"vertical" }} />
               </div>
+
               <div style={{ marginBottom:20 }}>
                 <label className="lbl">Ảnh chứng minh</label>
                 <div className="photo-drop" onClick={()=>fileRef.current.click()}>
@@ -318,10 +319,12 @@ export default function InVivoApp() {
                   <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display:"none" }} onChange={handlePhoto} />
                 </div>
               </div>
+
               <button className="btn-primary" style={{ width:"100%", fontSize:15 }} onClick={handleSubmit} disabled={submitting}>
                 {submitting ? "Đang lưu..." : "✓  Ghi nhận hoạt động"}
               </button>
-              <div style={{ marginTop:10, textAlign:"center", fontSize:11, color:scriptConfigured?"#34d399":"#fbbf24" }}>
+
+              <div style={{ marginTop:10, textAlign:"center", fontSize:11, color: scriptConfigured?"#34d399":"#fbbf24" }}>
                 {scriptConfigured ? "✓ Kết nối Google Sheet · Tự động đồng bộ" : "⚠ Chưa kết nối Google Sheet · Data lưu tạm trên trình duyệt"}
               </div>
             </div>
@@ -343,7 +346,7 @@ export default function InVivoApp() {
                   {BRANCHES.map(b=><option key={b}>{b}</option>)}
                 </select>
                 <select className="fi" style={{ width:"auto", fontSize:12, padding:"7px 11px" }} value={filterSale} onChange={e=>setFilterSale(e.target.value)}>
-                  <option value="all">👤 Tất cả NVKD</option>
+                  <option value="all">👤 Tất cả Sale</option>
                   {(filterBranch!=="all" ? SALE_BY_BRANCH[filterBranch] : allSales).map(s=><option key={s}>{s}</option>)}
                 </select>
                 <input type="date" className="fi" style={{ width:"auto", fontSize:12, padding:"7px 11px" }} value={filterDate} onChange={e=>setFilterDate(e.target.value)} />
@@ -352,6 +355,7 @@ export default function InVivoApp() {
               </div>
             </div>
 
+            {/* KPI row */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:14 }}>
               {[
                 { label:"Lượt thăm", val:stats.total, color:"#4f6ef7", icon:"🏃" },
@@ -367,12 +371,11 @@ export default function InVivoApp() {
               ))}
             </div>
 
+            {/* Branch compare */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
               {byBranch.map(({ name,count,active,signed })=>(
                 <div key={name} className="scard" style={{ display:"flex", alignItems:"center", gap:14 }}>
-                  <div style={{ width:42, height:42, borderRadius:10, background:name==="Hà Nội"?"rgba(251,191,36,.1)":"rgba(79,110,247,.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10.5, fontWeight:800, color:name==="Hà Nội"?"#fbbf24":"#7c9ef7" }}>
-                    {name==="Hà Nội"?"HN":"HCM"}
-                  </div>
+                  <div style={{ width:42, height:42, borderRadius:10, background:name==="Hà Nội"?"rgba(251,191,36,.1)":"rgba(79,110,247,.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10.5, fontWeight:800, color:name==="Hà Nội"?"#fbbf24":"#7c9ef7", letterSpacing:".03em" }}>{name==="Hà Nội"?"HN":"HCM"}</div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:800, fontSize:14.5, color:"#c8d0e4" }}>{name}</div>
                     <div style={{ fontSize:11, color:"#353e62", marginTop:3 }}>{count} lượt · {active} active · {signed} HĐ</div>
@@ -382,6 +385,7 @@ export default function InVivoApp() {
               ))}
             </div>
 
+            {/* Charts */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
               <div className="card">
                 <div className="sec">Chuyên khoa tiếp cận</div>
@@ -397,8 +401,9 @@ export default function InVivoApp() {
                     </div>
                   ))}
               </div>
+
               <div className="card">
-                <div className="sec">Hiệu suất NVKD</div>
+                <div className="sec">Hiệu suất Sale</div>
                 {bySale.length===0
                   ? <div style={{ color:"#1e2840", fontSize:13 }}>Chưa có dữ liệu</div>
                   : bySale.map(({ name,branch,count,active },i)=>(
@@ -407,9 +412,7 @@ export default function InVivoApp() {
                       <div style={{ flex:1 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                           <span style={{ fontSize:12.5, fontWeight:600, color:"#b0bcd0" }}>{name}</span>
-                          <span style={{ padding:"1px 7px", borderRadius:10, fontSize:9, fontWeight:800, ...(branch==="Hà Nội"?{background:"rgba(251,191,36,.1)",color:"#fbbf24"}:{background:"rgba(79,110,247,.1)",color:"#7c9ef7"}) }}>
-                            {branch==="Hà Nội"?"HN":"HCM"}
-                          </span>
+                          <span style={{ padding:"1px 7px", borderRadius:10, fontSize:9, fontWeight:800, ...(branch==="Hà Nội"?{background:"rgba(251,191,36,.1)",color:"#fbbf24"}:{background:"rgba(79,110,247,.1)",color:"#7c9ef7"}) }}>{branch==="Hà Nội"?"HN":"HCM"}</span>
                         </div>
                         <div style={{ fontSize:10, color:"#252e4a", marginTop:1 }}>{active} mã active</div>
                         <div className="bb"><div className="bf" style={{ width:`${(count/maxVisit)*100}%`, background:i===0?"linear-gradient(90deg,#fbbf24,#f59e0b)":"linear-gradient(90deg,#4f6ef7,#9c6ef7)" }}/></div>
@@ -420,8 +423,9 @@ export default function InVivoApp() {
               </div>
             </div>
 
+            {/* AI Report */}
             <div className="card" style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:aiSummary?14:0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: aiSummary?14:0 }}>
                 <div>
                   <div className="sec" style={{ marginBottom:3 }}>AI Executive Report</div>
                   <div style={{ fontSize:12, color:"#252e4a" }}>Phân tích toàn bộ data HN & HCM — dành cho CEO/Quản lý</div>
@@ -436,15 +440,16 @@ export default function InVivoApp() {
               </div>}
             </div>
 
+            {/* Table */}
             <div className="card">
               <div className="sec">Chi tiết hoạt động ({filtered.length})</div>
               {filtered.length===0
-                ? <div style={{ color:"#1e2840", fontSize:13, textAlign:"center", padding:"24px 0" }}>Chưa có dữ liệu.</div>
+                ? <div style={{ color:"#1e2840", fontSize:13, textAlign:"center", padding:"24px 0" }}>Chưa có dữ liệu. Nhập từ tab "Nhập liệu".</div>
                 : <div style={{ overflowX:"auto" }}>
                     <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12.5 }}>
                       <thead>
                         <tr style={{ borderBottom:"1px solid #101828" }}>
-                          {["CN","Ngày","NVKD","Khách hàng","Chuyên khoa","Active","Kết quả"].map(h=>(
+                          {["CN","Ngày","Sale","Khách hàng","Chuyên khoa","Active","Kết quả"].map(h=>(
                             <th key={h} style={{ padding:"8px 10px", textAlign:"left", color:"#252e4a", fontWeight:700, fontSize:9.5, letterSpacing:".07em", textTransform:"uppercase", whiteSpace:"nowrap" }}>{h}</th>
                           ))}
                         </tr>
