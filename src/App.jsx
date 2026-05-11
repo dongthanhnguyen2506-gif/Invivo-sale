@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8chAzMrL9qK11esuK3vmj1AvVTg3S0dXM1jGdfjWsl_qBgQ8ghHXU9Dr-uCpFu6HnhQ/exec";
 
 const BRANCHES = ["Hà Nội", "Hồ Chí Minh"];
 const SALE_BY_BRANCH = {
