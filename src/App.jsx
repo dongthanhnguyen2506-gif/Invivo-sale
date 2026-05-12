@@ -140,7 +140,9 @@ export default function App() {
   const [loadingAI, setLoadingAI] = useState(false);
   const [filterBranch, setFilterBranch] = useState("all");
   const [filterSale, setFilterSale] = useState("all");
-  const [filterDate, setFilterDate] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [quickRange, setQuickRange] = useState("all");
   const fileRef = useRef();
   const configured = !APPS_SCRIPT_URL.includes("YOUR_SCRIPT_ID");
 
@@ -193,10 +195,24 @@ export default function App() {
   };
 
   // ─── Filtered data ───────────────────────────────────────────────
+  // Quick range helper
+  const getQuickDates = () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2,"0");
+    const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    if (quickRange==="today") { const t=fmt(now); return {from:t,to:t}; }
+    if (quickRange==="week") { const d=new Date(now); d.setDate(d.getDate()-6); return {from:fmt(d),to:fmt(now)}; }
+    if (quickRange==="month") { const d=new Date(now); d.setDate(1); return {from:fmt(d),to:fmt(now)}; }
+    if (quickRange==="custom") return {from:filterDateFrom,to:filterDateTo};
+    return {from:"",to:""};
+  };
+  const {from:dateFrom, to:dateTo} = getQuickDates();
+
   const filtered = entries.filter(e => {
     if (filterBranch !== "all" && e.branch !== filterBranch) return false;
     if (filterSale !== "all" && e.sale !== filterSale) return false;
-    if (filterDate && e.date !== filterDate) return false;
+    if (dateFrom && e.date < dateFrom) return false;
+    if (dateTo && e.date > dateTo) return false;
     return true;
   });
 
@@ -508,16 +524,24 @@ export default function App() {
         {/* ══════════ DASHBOARD ══════════ */}
         {view === "dashboard" && (
           <>
-            {/* Header + Filters */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
+            {/* Header */}
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
                   <div style={{width:4,height:24,borderRadius:2,background:RED}}/>
                   <h1 style={{fontSize:22,fontWeight:900,letterSpacing:"-.025em"}}>Sales Dashboard</h1>
                 </div>
-                <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>Invivo Lab · Toàn quốc · Real-time</p>
+                <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>Invivo Lab · Toàn quốc · Real-time
+                  {(dateFrom||dateTo)&&<span style={{marginLeft:8,color:BLUE,fontWeight:700}}>
+                    · {dateFrom||"…"} → {dateTo||"…"}
+                  </span>}
+                </p>
               </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            </div>
+
+            {/* Filter bar */}
+            <div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:"14px 16px",marginBottom:20}}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
                 <select style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterBranch} onChange={e=>{setFilterBranch(e.target.value);setFilterSale("all");}}>
                   <option value="all">🏢 Tất cả khu vực</option>
                   {BRANCHES.map(b=><option key={b}>{b}</option>)}
@@ -526,13 +550,35 @@ export default function App() {
                   <option value="all">👤 Tất cả NVKD</option>
                   {(filterBranch!=="all"?SALE_BY_BRANCH[filterBranch]:allSales).map(s=><option key={s}>{s}</option>)}
                 </select>
-                <input type="date" style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterDate} onChange={e=>setFilterDate(e.target.value)}/>
-                {(filterBranch!=="all"||filterSale!=="all"||filterDate)&&
-                  <button className="btn-sm" onClick={()=>{setFilterBranch("all");setFilterSale("all");setFilterDate("");}}>✕ Reset</button>}
+                {(filterBranch!=="all"||filterSale!=="all"||quickRange!=="all")&&
+                  <button className="btn-sm" onClick={()=>{setFilterBranch("all");setFilterSale("all");setQuickRange("all");setFilterDateFrom("");setFilterDateTo("");}}>✕ Reset tất cả</button>}
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginRight:4}}>Thời gian:</span>
+                {[
+                  {key:"all",label:"Tất cả"},
+                  {key:"today",label:"Hôm nay"},
+                  {key:"week",label:"7 ngày"},
+                  {key:"month",label:"Tháng này"},
+                  {key:"custom",label:"Tùy chọn 📅"},
+                ].map(({key,label})=>(
+                  <button key={key} onClick={()=>setQuickRange(key)}
+                    style={{padding:"6px 14px",borderRadius:20,border:"1.5px solid",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",transition:"all .15s",
+                      background:quickRange===key?BLUE:"#fff",borderColor:quickRange===key?BLUE:"#e5e7eb",color:quickRange===key?"#fff":"#6b7280"}}>
+                    {label}
+                  </button>
+                ))}
+                {quickRange==="custom"&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginLeft:4,flexWrap:"wrap"}}>
+                    <input type="date" style={{...IS,width:"auto",fontSize:12,padding:"6px 10px"}} value={filterDateFrom} onChange={e=>setFilterDateFrom(e.target.value)}/>
+                    <span style={{color:"#9ca3af",fontWeight:700}}>→</span>
+                    <input type="date" style={{...IS,width:"auto",fontSize:12,padding:"6px 10px"}} value={filterDateTo} onChange={e=>setFilterDateTo(e.target.value)}/>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* KPI 4 ô */}
+                        {/* KPI 4 ô */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
               {[
                 {label:"Lượt hoạt động", val:stats.total,    color:BLUE,      bg:BLUE_L,    icon:"🏃"},
