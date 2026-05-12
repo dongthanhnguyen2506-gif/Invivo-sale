@@ -771,7 +771,7 @@ export default function App() {
               {/* Section 1: NVKD */}
               <SL color={BLUE}>Thông tin NVKD</SL>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                <FG label="Chi nhánh / Khu vực" required>
+                <FG label="Khu vực" required>
                   <select style={IS} value={form.branch} onChange={e=>setField("branch",e.target.value)} onFocus={handleFocus} onBlur={handleBlur}>
                     <option value="">-- Chọn khu vực --</option>
                     {BRANCHES.map(b=><option key={b}>{b}</option>)}
