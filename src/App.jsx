@@ -13,23 +13,23 @@ const DEFAULT_PINS = {
   // Board Management
   'Board Management':      '0000',
   // Sale Managers
-  'Trần Ngọc Bảo Trung':  '2301',  // SM HCM
-  'Nguyễn Văn Thuyết':    '5750',  // SM HN
-  'Huỳnh Ngọc Hải':       '8854',  // SM Gia Lai
-  'Hà Ngọc Khuyến':       '8853',  // SM TN-PT
+  'Trần Ngọc Bảo Trung':  '0000',  // SM HCM
+  'Nguyễn Văn Thuyết':    '0000',  // SM HN
+  'Huỳnh Ngọc Hải':       '0000',  // SM Gia Lai
+  'Hà Ngọc Khuyến':       '0000',  // SM TN-PT
   // NVKD HN
-  'Nguyễn Đức Quân':      '1947',
-  'Lê Anh Dũng':          '6535',
-  'Vương Văn Tiến':       '5318',
+  'Nguyễn Đức Quân':      '0000',
+  'Lê Anh Dũng':          '0000',
+  'Vương Văn Tiến':       '0000',
   // NVKD HCM
-  'Trần Việt Hảo':        '5540',
-  'Thúy Kiều':            '6641',
-  'Châu Kim Ngân':        '9903',
-  'Nguyễn Bá Phú':        '3515',
+  'Trần Việt Hảo':        '0000',
+  'Thúy Kiều':            '0000',
+  'Châu Kim Ngân':        '0000',
+  'Nguyễn Bá Phú':        '0000',
   // NVKD TN-PT
-  'Vũ Thanh Tùng':        '7097',
+  'Vũ Thanh Tùng':        '0000',
   // NVKD Gia Lai
-  'Ngọc Tuyết':           '6618',
+  'Ngọc Tuyết':           '0000',
 };
 
 // Role definitions
