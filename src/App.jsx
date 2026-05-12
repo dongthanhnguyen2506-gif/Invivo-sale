@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── PASTE YOUR APPS SCRIPT URL HERE ────────────────────────────
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0zgRMFN2FpvHp92-a3EPun_Q1iiJu9gMZGvp561_K5MO_Znsrc8gMYew/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
 // ─────────────────────────────────────────────────────────────────
 
 // ─── DEFAULT PINs (lần đầu đăng nhập) ───────────────────────────
 // NVKD có thể đổi PIN sau khi đăng nhập lần đầu
 const DEFAULT_PINS = {
   // Board Management
-  'Board Management':      '0001',
+  'Board Management':      '0000',
   // Sale Managers
   'Trần Ngọc Bảo Trung':  '2301',  // SM HCM
   'Nguyễn Văn Thuyết':    '5750',  // SM HN
@@ -264,10 +264,15 @@ export default function App() {
   const [newPin2, setNewPin2] = useState("");
   const [pinChangeMsg, setPinChangeMsg] = useState("");
   const userRole = currentUser ? (ROLE_MAP[currentUser] || "nvkd") : null;
-  const isBoard = userRole === "board";
-  const isSaleManager = userRole === "sm";
-  const isManager = isBoard || isSaleManager; // both see dashboard fully
-  const userBranch = currentUser ? Object.keys(SALE_BY_BRANCH).find(b => SALE_BY_BRANCH[b].includes(currentUser)) : null;
+  const isBoard = userRole === "board";         // sees everything
+  const isSaleManager = userRole === "sm";      // sees own branch only
+  const isNVKD = userRole === "nvkd";           // sees own data only
+  const isManager = isBoard || isSaleManager;   // can see dashboard
+
+  // The branch this user belongs to (SM or NVKD)
+  const userBranch = currentUser
+    ? Object.keys(SALE_BY_BRANCH).find(b => SALE_BY_BRANCH[b].includes(currentUser))
+    : null;
 
   // Load custom PINs from localStorage (overrides DEFAULT_PINS)
   const getEffectivePins = () => {
@@ -462,18 +467,32 @@ export default function App() {
   const {from:dateFrom, to:dateTo} = getQuickDates();
 
   // For dashboard: Manager sees all, NVKD sees only their own
-  const dashEntries = isManager ? entries : entries.filter(e => e.sale === currentUser);
+  // Scope entries by role:
+  // - Board: all entries
+  // - Sale Manager: only entries from their branch
+  // - NVKD: only their own entries
+  const scopedEntries = isBoard
+    ? entries
+    : isSaleManager
+      ? entries.filter(e => e.branch === userBranch)
+      : entries.filter(e => e.sale === currentUser);
 
-  const filtered = dashEntries.filter(e => {
-    if (isManager && filterBranch !== "all" && e.branch !== filterBranch) return false;
-    if (isManager && filterSale !== "all" && e.sale !== filterSale) return false;
+  const filtered = scopedEntries.filter(e => {
+    if (isBoard && filterBranch !== "all" && e.branch !== filterBranch) return false;
+    if (isBoard && filterSale !== "all" && e.sale !== filterSale) return false;
+    if (isSaleManager && filterSale !== "all" && e.sale !== filterSale) return false;
     if (dateFrom && e.date < dateFrom) return false;
     if (dateTo && e.date > dateTo) return false;
     return true;
   });
 
-  // All entries still used for leaderboard rank (NVKD sees full ranking)
-  const allFiltered = entries.filter(e => {
+  // For leaderboard: Board sees all, SM sees own branch, NVKD sees all (for rank context)
+  const allFiltered = (isBoard
+    ? entries
+    : isSaleManager
+      ? entries.filter(e => e.branch === userBranch)
+      : entries  // NVKD: show full leaderboard for rank context
+  ).filter(e => {
     if (dateFrom && e.date < dateFrom) return false;
     if (dateTo && e.date > dateTo) return false;
     return true;
@@ -907,7 +926,11 @@ export default function App() {
                   <h1 style={{fontSize:22,fontWeight:900,letterSpacing:"-.025em"}}>Sales Dashboard</h1>
                 </div>
                 <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>
-                  {isManager?"Invivo Lab · Toàn quốc · Real-time":`Xin chào, ${currentUser} 👋`}
+                  {isBoard
+                    ? "Invivo Lab · Toàn quốc · Real-time"
+                    : isSaleManager
+                      ? `${userBranch} · Real-time`
+                      : `Xin chào, ${currentUser} 👋`}
                   {(dateFrom||dateTo)&&<span style={{marginLeft:8,color:BLUE,fontWeight:700}}>
                     · {dateFrom||"…"} → {dateTo||"…"}
                   </span>}
@@ -918,16 +941,30 @@ export default function App() {
             {/* Filter bar */}
             <div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:"14px 16px",marginBottom:20}}>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
-                <select style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterBranch} onChange={e=>{setFilterBranch(e.target.value);setFilterSale("all");}}>
-                  <option value="all">🏢 Tất cả khu vực</option>
-                  {BRANCHES.map(b=><option key={b}>{b}</option>)}
-                </select>
-                <select style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterSale} onChange={e=>setFilterSale(e.target.value)}>
-                  <option value="all">👤 Tất cả NVKD</option>
-                  {(filterBranch!=="all"?SALE_BY_BRANCH[filterBranch]:allSales).map(s=><option key={s}>{s}</option>)}
-                </select>
+                {/* Board sees branch filter; SM sees fixed branch label */}
+                {isBoard && (
+                  <select style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterBranch} onChange={e=>{setFilterBranch(e.target.value);setFilterSale("all");}}>
+                    <option value="all">🏢 Tất cả khu vực</option>
+                    {BRANCHES.map(b=><option key={b}>{b}</option>)}
+                  </select>
+                )}
+                {isSaleManager && (
+                  <div style={{padding:"7px 12px",background:"#eaf0ff",borderRadius:8,fontSize:12,fontWeight:700,color:BLUE,border:"1.5px solid #bfdbfe"}}>
+                    📍 {userBranch}
+                  </div>
+                )}
+                {/* NVKD filter: Board by branch, SM by nvkd in own branch */}
+                {(isBoard || isSaleManager) && (
+                  <select style={{...IS,width:"auto",fontSize:12,padding:"7px 11px"}} value={filterSale} onChange={e=>setFilterSale(e.target.value)}>
+                    <option value="all">👤 Tất cả NVKD</option>
+                    {(isSaleManager
+                      ? SALE_BY_BRANCH[userBranch] || []
+                      : filterBranch!=="all" ? SALE_BY_BRANCH[filterBranch] : allSales
+                    ).map(s=><option key={s}>{s}</option>)}
+                  </select>
+                )}
                 {(filterBranch!=="all"||filterSale!=="all"||quickRange!=="all")&&
-                  <button className="btn-sm" onClick={()=>{setFilterBranch("all");setFilterSale("all");setQuickRange("all");setFilterDateFrom("");setFilterDateTo("");}}>✕ Reset tất cả</button>}
+                  <button className="btn-sm" onClick={()=>{setFilterBranch("all");setFilterSale("all");setQuickRange("all");setFilterDateFrom("");setFilterDateTo("");}}>✕ Reset</button>}
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                 <span style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".06em",marginRight:4}}>Thời gian:</span>
@@ -992,7 +1029,7 @@ export default function App() {
               ))}
             </div>
 
-            {isManager && <div className="card" style={{marginBottom:14}}>
+            {(isBoard || isSaleManager) && <div className="card" style={{marginBottom:14}}>
               <div className="sec">So sánh khu vực</div>
               {byBranch.length === 0
                 ?<div style={{color:"#d1d5db",fontSize:13}}>Chưa có dữ liệu</div>
@@ -1174,7 +1211,45 @@ export default function App() {
               }
             </div>
 
-            {isManager && <div className="card" style={{marginBottom:14,borderTop:`3px solid ${RED}`}}>
+            {/* Sale Manager detail table — own branch */}
+            {isSaleManager && (
+              <div className="card" style={{marginBottom:14}}>
+                <div className="sec">Chi tiết hoạt động — {userBranch} ({filtered.length})</div>
+                {filtered.length===0
+                  ?<div style={{color:"#d1d5db",fontSize:13,textAlign:"center",padding:"20px 0"}}>Chưa có dữ liệu.</div>
+                  :<div style={{overflowX:"auto"}}>
+                    <table>
+                      <thead>
+                        <tr>{["Ngày","NVKD","Khách hàng","Quận/Tỉnh","CK","Loại KH","Kỳ vọng","Kết quả"].map(h=><th key={h}>{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map(e=>{
+                          const tag=RESULT_STYLE[e.result]||{bg:"#f4f4f5",color:"#6b7280",border:"#9ca3af"};
+                          const cvColor=e.conversionExpect==="Cao"?RED:e.conversionExpect==="Trung bình"?BLUE:"#9ca3af";
+                          return(
+                            <tr key={e.id||e.timestamp}>
+                              <td style={{color:"#6b7280",whiteSpace:"nowrap"}}>{e.date}</td>
+                              <td style={{fontWeight:600}}>{e.sale}</td>
+                              <td>
+                                <div style={{fontWeight:600}}>{e.customerName}</div>
+                                {e.phone&&<div style={{fontSize:11,color:"#9ca3af"}}>{e.phone}</div>}
+                              </td>
+                              <td style={{color:"#6b7280",fontSize:12}}>{e.district||"—"}</td>
+                              <td style={{color:"#6b7280",fontSize:12}}>{e.specialty}</td>
+                              <td><span className="chip" style={{background:"#f1f5f9",color:"#374151",borderColor:"#e5e7eb",fontSize:10}}>{e.customerType||"—"}</span></td>
+                              <td style={{fontWeight:700,color:cvColor,fontSize:12}}>{e.conversionExpect==="Cao"?"🔥":e.conversionExpect==="Trung bình"?"⭐":"—"} {e.conversionExpect||"—"}</td>
+                              <td><span className="chip" style={{background:tag.bg,color:tag.color,borderColor:tag.border}}>{e.result}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            )}
+
+            {isBoard && <div className="card" style={{marginBottom:14,borderTop:`3px solid ${RED}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSummary?16:0}}>
                 <div>
                   <div className="sec" style={{marginBottom:3}}>AI Executive Report</div>
@@ -1192,7 +1267,7 @@ export default function App() {
 
             }
 
-            {isManager && <div className="card">
+            {isBoard && <div className="card">
               <div className="sec">Chi tiết hoạt động ({filtered.length})</div>
               {filtered.length===0
                 ?<div style={{color:"#d1d5db",fontSize:13,textAlign:"center",padding:"28px 0"}}>Chưa có dữ liệu.</div>
