@@ -138,7 +138,7 @@ function calcScore(nvkdEntries, allEntries) {
 // ─── Shared input style ───────────────────────────────────────────
 const IS = {
   width:"100%",background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:8,
-  padding:"10px 13px",color:"#111827",fontSize:14,
+  padding:"10px 13px",color:"#111827",fontSize:16, // 16px prevents iOS auto-zoom
   fontFamily:"'Be Vietnam Pro',sans-serif",outline:"none",
   transition:"border-color .15s",appearance:"none",WebkitAppearance:"none",
 };
@@ -182,6 +182,76 @@ function ScoreBar({ score }) {
 }
 // ─────────────────────────────────────────────────────────────────
 
+// ─── ChangePIN Modal — defined OUTSIDE App to prevent re-renders ─
+function ChangePINModal({ show, onClose, onSave, userName }) {
+  const [pin1, setPin1] = useState("");
+  const [pin2, setPin2] = useState("");
+  const [msg, setMsg]   = useState("");
+  const [saved, setSaved] = useState(false);
+
+  if (!show) return null;
+
+  const handleSave = () => {
+    if (!/^\d{4}$/.test(pin1)) { setMsg("PIN phải đúng 4 chữ số."); return; }
+    if (pin1 !== pin2) { setMsg("Hai PIN không khớp."); return; }
+    onSave(pin1);
+    setSaved(true);
+    setTimeout(() => { setSaved(false); setPin1(""); setPin2(""); setMsg(""); onClose(); }, 1500);
+  };
+
+  const PIN_INPUT = {
+    width:"100%", background:"#f8fafc", border:"1.5px solid #e5e7eb",
+    borderRadius:8, padding:"12px", fontSize:22, fontFamily:"inherit",
+    outline:"none", letterSpacing:10, textAlign:"center", fontWeight:700,
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"28px 24px",maxWidth:320,width:"100%",boxShadow:"0 12px 48px rgba(0,0,0,.2)"}}>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:4}}>🔐 Đổi mã PIN</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:22}}>
+          Tạo mã PIN cá nhân cho tài khoản <strong>{userName}</strong>
+        </div>
+        {saved
+          ? <div style={{fontSize:15,color:"#0d7a4e",fontWeight:800,textAlign:"center",padding:"20px 0"}}>✓ Đổi PIN thành công!</div>
+          : <>
+              <div style={{marginBottom:14}}>
+                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:6}}>PIN mới</label>
+                <input type="password" inputMode="numeric" maxLength={4} style={PIN_INPUT}
+                  placeholder="••••" value={pin1}
+                  onChange={e => setPin1(e.target.value.replace(/[^0-9]/g,"").slice(0,4))}
+                  onFocus={e=>e.target.style.borderColor="#1a56db"}
+                  onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+                />
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:6}}>Xác nhận PIN</label>
+                <input type="password" inputMode="numeric" maxLength={4} style={PIN_INPUT}
+                  placeholder="••••" value={pin2}
+                  onChange={e => setPin2(e.target.value.replace(/[^0-9]/g,"").slice(0,4))}
+                  onFocus={e=>e.target.style.borderColor="#1a56db"}
+                  onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+                  onKeyDown={e=>e.key==="Enter"&&handleSave()}
+                />
+              </div>
+              {msg && <div style={{fontSize:12,color:"#c0392b",fontWeight:600,marginBottom:12,padding:"8px 10px",background:"#fef2f2",borderRadius:7}}>⚠ {msg}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setPin1("");setPin2("");setMsg("");onClose();}}
+                  style={{flex:1,background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,color:"#6b7280",fontFamily:"inherit",fontWeight:600,fontSize:13,padding:"11px",cursor:"pointer"}}>
+                  Để sau
+                </button>
+                <button onClick={handleSave}
+                  style={{flex:2,background:"#1a56db",border:"none",borderRadius:8,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:13,padding:"11px",cursor:"pointer"}}>
+                  Xác nhận
+                </button>
+              </div>
+            </>
+        }
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // ─── Auth ──────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null);
@@ -219,6 +289,7 @@ export default function App() {
   // ─── App state ─────────────────────────────────────────────────
   const [view, setView] = useState("form");
   const [entries, setEntries] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loadingData, setLoadingData] = useState(false);
   const [lastSync, setLastSync] = useState(null);
   const [form, setForm] = useState({
@@ -291,8 +362,9 @@ export default function App() {
       const text = await resp.text();
       const json = JSON.parse(text);
       if (json.data && Array.isArray(json.data)) {
-        setEntries(json.data);
+        setEntries([...json.data]); // spread to force new array reference
         setLastSync(new Date().toLocaleTimeString("vi-VN"));
+        setRefreshKey(k => k + 1);
         try { localStorage.setItem("iv3", JSON.stringify(json.data)); } catch(_) {}
       } else {
         throw new Error(json.error || "No data");
@@ -552,45 +624,6 @@ export default function App() {
   }
 
   // ─── Change PIN modal ─────────────────────────────────────────
-  const ChangePINModal = () => showChangePIN ? (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#fff",borderRadius:16,padding:"28px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}>
-        <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>🔐 Đổi mã PIN</div>
-        <div style={{fontSize:12,color:"#6b7280",marginBottom:20}}>
-          {pinChangeMsg ? "" : "Bạn đang dùng PIN mặc định. Đổi PIN cá nhân để bảo mật tài khoản."}
-        </div>
-        {pinChangeMsg
-          ? <div style={{fontSize:14,color:"#0d7a4e",fontWeight:700,textAlign:"center",padding:"16px 0"}}>{pinChangeMsg}</div>
-          : <>
-              <div style={{marginBottom:12}}>
-                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:5}}>PIN mới</label>
-                <input type="password" inputMode="numeric" maxLength={4} style={{width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:16,fontFamily:"inherit",outline:"none",letterSpacing:6,textAlign:"center"}}
-                  placeholder="••••" value={newPin1} onChange={e=>setNewPin1(e.target.value.replace(/\D/g,"").slice(0,4))}
-                  onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
-              </div>
-              <div style={{marginBottom:16}}>
-                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:5}}>Xác nhận PIN mới</label>
-                <input type="password" inputMode="numeric" maxLength={4} style={{width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:16,fontFamily:"inherit",outline:"none",letterSpacing:6,textAlign:"center"}}
-                  placeholder="••••" value={newPin2} onChange={e=>setNewPin2(e.target.value.replace(/\D/g,"").slice(0,4))}
-                  onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
-              </div>
-              {pinChangeMsg && <div style={{fontSize:12,color:RED,marginBottom:10,fontWeight:600}}>⚠ {pinChangeMsg}</div>}
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{setShowChangePIN(false);setPinChangeMsg("");setNewPin1("");setNewPin2("");}}
-                  style={{flex:1,background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,color:"#6b7280",fontFamily:"inherit",fontWeight:600,fontSize:13,padding:"10px",cursor:"pointer"}}>
-                  Để sau
-                </button>
-                <button onClick={handleChangePIN}
-                  style={{flex:2,background:BLUE,border:"none",borderRadius:8,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:13,padding:"10px",cursor:"pointer"}}>
-                  Xác nhận đổi PIN
-                </button>
-              </div>
-            </>
-        }
-      </div>
-    </div>
-  ) : null;
-
   return (
     <div style={{fontFamily:"'Be Vietnam Pro',sans-serif",minHeight:"100vh",background:"#f8fafc",color:"#111827"}}>
       <style>{`
@@ -663,7 +696,12 @@ export default function App() {
         </div>
       </div>
 
-      <ChangePINModal />
+      <ChangePINModal
+        show={showChangePIN}
+        onClose={() => { setShowChangePIN(false); setPinChangeMsg(""); }}
+        onSave={(pin) => { saveCustomPin(currentUser, pin); }}
+        userName={currentUser}
+      />
       {submitted && <div className="toast">✅ Đã ghi nhận hoạt động!</div>}
 
       <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 24px"}}>
