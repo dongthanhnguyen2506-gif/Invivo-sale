@@ -1,6 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
+// ─── PASTE YOUR APPS SCRIPT URL HERE ────────────────────────────
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0zgRMFN2FpvHp92-a3EPun_Q1iiJu9gMZGvp561_K5MO_Znsrc8gMYew/exec";
+// ─────────────────────────────────────────────────────────────────
+
+// ─── DEFAULT PINs (lần đầu đăng nhập) ───────────────────────────
+// NVKD có thể đổi PIN sau khi đăng nhập lần đầu
+const DEFAULT_PINS = {
+  'Manager':            '7655',
+  'Nguyễn Văn Thuyết': '5750',
+  'Nguyễn Đức Quân':   '1947',
+  'Lê Anh Dũng':       '6535',
+  'Vương Văn Tiến':    '5318',
+  'Trần Việt Hảo':     '5540',
+  'Thúy Kiều':         '6641',
+  'Châu Kim Ngân':     '9903',
+  'Nguyễn Bá Phú':     '3515',
+  'Hà Ngọc Khuyến':   '8853',
+  'Vũ Thanh Tùng':     '7097',
+  'Ngọc Tuyết':        '6618',
+  'Huỳnh Ngọc Hải':    '8854',
+};
 
 // ─── CONFIG ───────────────────────────────────────────────────────
 const BRANCHES = ["Hà Nội", "Hồ Chí Minh", "Thái Nguyên - Phú Thọ", "Gia Lai"];
@@ -126,8 +146,40 @@ function ScoreBar({ score }) {
 // ─────────────────────────────────────────────────────────────────
 
 export default function App() {
+  // ─── Auth ──────────────────────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginName, setLoginName] = useState("");
+  const [loginPin, setLoginPin] = useState("");
+  const [loginError, setLoginError] = useState("");
+  // Change PIN flow
+  const [showChangePIN, setShowChangePIN] = useState(false);
+  const [newPin1, setNewPin1] = useState("");
+  const [newPin2, setNewPin2] = useState("");
+  const [pinChangeMsg, setPinChangeMsg] = useState("");
+  const isManager = currentUser === "Manager";
+
+  // Load custom PINs from localStorage (overrides DEFAULT_PINS)
+  const getEffectivePins = () => {
+    try {
+      const saved = localStorage.getItem("iv_pins");
+      return saved ? { ...DEFAULT_PINS, ...JSON.parse(saved) } : { ...DEFAULT_PINS };
+    } catch(_) { return { ...DEFAULT_PINS }; }
+  };
+
+  const saveCustomPin = (name, pin) => {
+    try {
+      const saved = localStorage.getItem("iv_pins");
+      const current = saved ? JSON.parse(saved) : {};
+      current[name] = pin;
+      localStorage.setItem("iv_pins", JSON.stringify(current));
+    } catch(_) {}
+  };
+
+  // ─── App state ─────────────────────────────────────────────────
   const [view, setView] = useState("form");
   const [entries, setEntries] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
   const [form, setForm] = useState({
     branch:"", sale:"", date: new Date().toISOString().split("T")[0],
     ctvCode:"", customerName:"", address:"", district:"", phone:"",
@@ -146,9 +198,71 @@ export default function App() {
   const fileRef = useRef();
   const configured = !APPS_SCRIPT_URL.includes("YOUR_SCRIPT_ID");
 
+  // ─── Login ─────────────────────────────────────────────────────
+  const allNVKD = Object.values(SALE_BY_BRANCH).flat();
+  const allUsers = ["Manager", ...allNVKD];
+
+  const handleLogin = () => {
+    const name = loginName.trim();
+    const pin = loginPin.trim();
+    if (!name) { setLoginError("Vui lòng chọn tên."); return; }
+    if (!pin || pin.length !== 4) { setLoginError("PIN phải đúng 4 số."); return; }
+    const pins = getEffectivePins();
+    if (!allUsers.includes(name)) { setLoginError("Tên không hợp lệ."); return; }
+    if (pins[name] !== pin) { setLoginError("PIN không đúng. Liên hệ quản lý nếu quên PIN."); return; }
+    // Login success
+    setCurrentUser(name);
+    setLoginError("");
+    setLoginPin("");
+    // Check if using default PIN → prompt to change
+    const savedPins = (() => { try { const s=localStorage.getItem("iv_pins"); return s?JSON.parse(s):{}; } catch(_){return{};} })();
+    if (!savedPins[name]) {
+      // First time login with default PIN
+      setTimeout(() => setShowChangePIN(true), 500);
+    }
+    if (name !== "Manager") {
+      const branch = Object.keys(SALE_BY_BRANCH).find(b => SALE_BY_BRANCH[b].includes(name));
+      setForm(prev => ({ ...prev, branch: branch||"", sale: name }));
+    }
+  };
+
+  const handleChangePIN = () => {
+    if (newPin1.length !== 4 || !/^\d{4}$/.test(newPin1)) { setPinChangeMsg("PIN phải đúng 4 chữ số."); return; }
+    if (newPin1 !== newPin2) { setPinChangeMsg("Hai PIN không khớp."); return; }
+    saveCustomPin(currentUser, newPin1);
+    setPinChangeMsg("✓ Đổi PIN thành công!");
+    setNewPin1(""); setNewPin2("");
+    setTimeout(() => { setShowChangePIN(false); setPinChangeMsg(""); }, 1500);
+  };
+
+  // ─── Fetch data from Google Sheet ──────────────────────────────
+  const fetchFromSheet = async () => {
+    if (!configured) return;
+    setLoadingData(true);
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL + "?action=read", { method:"GET", mode:"cors" });
+      const json = await resp.json();
+      if (json.data && Array.isArray(json.data)) {
+        setEntries(json.data);
+        setLastSync(new Date().toLocaleTimeString("vi-VN"));
+        try { localStorage.setItem("iv3", JSON.stringify(json.data)); } catch(_) {}
+      }
+    } catch(_) {
+      // fallback to localStorage
+      try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(__) {}
+    }
+    setLoadingData(false);
+  };
+
+  // Load on mount + when switching to dashboard
   useEffect(() => {
     try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(_) {}
+    if (configured) fetchFromSheet();
   }, []);
+
+  useEffect(() => {
+    if (view === "dashboard" && configured) fetchFromSheet();
+  }, [view]);
 
   const saveLocal = (list) => { try { localStorage.setItem("iv3", JSON.stringify(list)); } catch(_) {} };
 
@@ -208,9 +322,19 @@ export default function App() {
   };
   const {from:dateFrom, to:dateTo} = getQuickDates();
 
-  const filtered = entries.filter(e => {
-    if (filterBranch !== "all" && e.branch !== filterBranch) return false;
-    if (filterSale !== "all" && e.sale !== filterSale) return false;
+  // For dashboard: Manager sees all, NVKD sees only their own
+  const dashEntries = isManager ? entries : entries.filter(e => e.sale === currentUser);
+
+  const filtered = dashEntries.filter(e => {
+    if (isManager && filterBranch !== "all" && e.branch !== filterBranch) return false;
+    if (isManager && filterSale !== "all" && e.sale !== filterSale) return false;
+    if (dateFrom && e.date < dateFrom) return false;
+    if (dateTo && e.date > dateTo) return false;
+    return true;
+  });
+
+  // All entries still used for leaderboard rank (NVKD sees full ranking)
+  const allFiltered = entries.filter(e => {
     if (dateFrom && e.date < dateFrom) return false;
     if (dateTo && e.date > dateTo) return false;
     return true;
@@ -236,8 +360,8 @@ export default function App() {
 
   const allSales = [...new Set(entries.map(e => e.sale))];
   const bySale = allSales.map(s => {
-    const se = filtered.filter(e => e.sale === s);
-    const score = calcScore(se, filtered);
+    const se = allFiltered.filter(e => e.sale === s);
+    const score = calcScore(se, allFiltered);
     return {
       name: s,
       branch: entries.find(e => e.sale === s)?.branch || "",
@@ -311,6 +435,108 @@ export default function App() {
     return {bg:"#fdf4ff",color:"#7e22ce",border:"#7e22ce"};
   };
 
+  // ─── Login screen ───────────────────────────────────────────────
+  if (!currentUser) {
+    const IS2 = {width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:9,padding:"12px 14px",color:"#111827",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif",outline:"none"};
+    return (
+      <div style={{fontFamily:"'Be Vietnam Pro',sans-serif",minHeight:"100vh",background:"linear-gradient(135deg,#eef2ff,#fff1f2)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:"#fff",borderRadius:20,padding:"36px 32px",maxWidth:400,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.1)",border:"1.5px solid #e5e7eb"}}>
+          {/* Logo */}
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:28}}>
+            <div style={{display:"flex",gap:2}}>
+              <div style={{width:10,height:36,borderRadius:3,background:BLUE}}/>
+              <div style={{width:10,height:36,borderRadius:3,background:RED,marginLeft:2}}/>
+            </div>
+            <div>
+              <div style={{fontWeight:900,fontSize:18,letterSpacing:"-.02em"}}>Invivo <span style={{color:BLUE}}>Lab</span></div>
+              <div style={{fontSize:10,color:"#9ca3af",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase"}}>Sales Activity System</div>
+            </div>
+          </div>
+
+          <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:4}}>Đăng nhập</div>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:22}}>Chọn tên và nhập mã PIN 4 số của bạn</div>
+
+          {/* Name dropdown */}
+          <div style={{marginBottom:12}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Họ tên</label>
+            <select style={IS2} value={loginName} onChange={e=>setLoginName(e.target.value)}
+              onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}>
+              <option value="">-- Chọn tên của bạn --</option>
+              <option value="Manager">👑 Manager (Quản lý)</option>
+              {Object.entries(SALE_BY_BRANCH).map(([branch, names]) => (
+                <optgroup key={branch} label={branch}>
+                  {names.map(n => <option key={n} value={n}>{n}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* PIN input */}
+          <div style={{marginBottom:16}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Mã PIN</label>
+            <input type="password" inputMode="numeric" maxLength={4} style={IS2}
+              placeholder="4 chữ số" value={loginPin}
+              onChange={e=>setLoginPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+              onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+              onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+          </div>
+
+          {loginError && <div style={{fontSize:12,color:RED,marginBottom:12,fontWeight:600,padding:"8px 12px",background:"#fef2f2",borderRadius:7}}>⚠ {loginError}</div>}
+
+          <button onClick={handleLogin}
+            style={{width:"100%",background:BLUE,border:"none",borderRadius:9,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:15,padding:"13px",cursor:"pointer",boxShadow:"0 4px 14px rgba(26,86,219,.3)"}}>
+            Đăng nhập →
+          </button>
+
+          <div style={{marginTop:18,padding:"12px 14px",background:"#f8fafc",borderRadius:8,fontSize:11,color:"#6b7280",lineHeight:1.8}}>
+            <strong style={{color:"#374151"}}>Lần đầu đăng nhập?</strong><br/>
+            Dùng mã PIN do quản lý cấp. Sau khi vào, bạn có thể đổi PIN cá nhân.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Change PIN modal ─────────────────────────────────────────
+  const ChangePINModal = () => showChangePIN ? (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#fff",borderRadius:16,padding:"28px 24px",maxWidth:340,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}>
+        <div style={{fontWeight:800,fontSize:16,marginBottom:4}}>🔐 Đổi mã PIN</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:20}}>
+          {pinChangeMsg ? "" : "Bạn đang dùng PIN mặc định. Đổi PIN cá nhân để bảo mật tài khoản."}
+        </div>
+        {pinChangeMsg
+          ? <div style={{fontSize:14,color:"#0d7a4e",fontWeight:700,textAlign:"center",padding:"16px 0"}}>{pinChangeMsg}</div>
+          : <>
+              <div style={{marginBottom:12}}>
+                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:5}}>PIN mới</label>
+                <input type="password" inputMode="numeric" maxLength={4} style={{width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:16,fontFamily:"inherit",outline:"none",letterSpacing:6,textAlign:"center"}}
+                  placeholder="••••" value={newPin1} onChange={e=>setNewPin1(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",marginBottom:5}}>Xác nhận PIN mới</label>
+                <input type="password" inputMode="numeric" maxLength={4} style={{width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"10px 12px",fontSize:16,fontFamily:"inherit",outline:"none",letterSpacing:6,textAlign:"center"}}
+                  placeholder="••••" value={newPin2} onChange={e=>setNewPin2(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+              </div>
+              {pinChangeMsg && <div style={{fontSize:12,color:RED,marginBottom:10,fontWeight:600}}>⚠ {pinChangeMsg}</div>}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setShowChangePIN(false);setPinChangeMsg("");setNewPin1("");setNewPin2("");}}
+                  style={{flex:1,background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:8,color:"#6b7280",fontFamily:"inherit",fontWeight:600,fontSize:13,padding:"10px",cursor:"pointer"}}>
+                  Để sau
+                </button>
+                <button onClick={handleChangePIN}
+                  style={{flex:2,background:BLUE,border:"none",borderRadius:8,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:13,padding:"10px",cursor:"pointer"}}>
+                  Xác nhận đổi PIN
+                </button>
+              </div>
+            </>
+        }
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div style={{fontFamily:"'Be Vietnam Pro',sans-serif",minHeight:"100vh",background:"#f8fafc",color:"#111827"}}>
       <style>{`
@@ -368,15 +594,22 @@ export default function App() {
               <div style={{fontSize:9,color:"#9ca3af",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase"}}>Sales Activity · Toàn quốc</div>
             </div>
           </div>
-          <div style={{display:"flex",gap:8}}>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <button className={`nav-btn ${view==="form"?"on":""}`} onClick={()=>setView("form")}>📝 Nhập liệu</button>
             <button className={`nav-btn ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>
               📊 Dashboard{entries.length>0&&<span style={{marginLeft:6,background:view==="dashboard"?"rgba(255,255,255,.25)":BLUE,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:800}}>{entries.length}</span>}
             </button>
+            <div style={{height:24,width:1,background:"#e5e7eb",margin:"0 4px"}}/>
+            <div style={{fontSize:12,color:"#6b7280",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {isManager?"👑 Manager":`👤 ${currentUser}`}
+            </div>
+            <button onClick={()=>setShowChangePIN(true)} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#6b7280",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🔐 PIN</button>
+            <button onClick={()=>{setCurrentUser(null);setLoginPin("");setLoginName("");}} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#9ca3af",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Thoát</button>
           </div>
         </div>
       </div>
 
+      <ChangePINModal />
       {submitted && <div className="toast">✅ Đã ghi nhận hoạt động!</div>}
 
       <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 24px"}}>
@@ -531,7 +764,8 @@ export default function App() {
                   <div style={{width:4,height:24,borderRadius:2,background:RED}}/>
                   <h1 style={{fontSize:22,fontWeight:900,letterSpacing:"-.025em"}}>Sales Dashboard</h1>
                 </div>
-                <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>Invivo Lab · Toàn quốc · Real-time
+                <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>
+                  {isManager?"Invivo Lab · Toàn quốc · Real-time":`Xin chào, ${currentUser} 👋`}
                   {(dateFrom||dateTo)&&<span style={{marginLeft:8,color:BLUE,fontWeight:700}}>
                     · {dateFrom||"…"} → {dateTo||"…"}
                   </span>}
@@ -578,7 +812,20 @@ export default function App() {
               </div>
             </div>
 
-                        {/* KPI 4 ô */}
+                        {/* Sync bar */}
+            {configured && (
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,padding:"10px 14px",background:"#f0f7ff",borderRadius:8,border:"1px solid #dbeafe"}}>
+                <div style={{fontSize:12,color:"#1a56db",fontWeight:600}}>
+                  {loadingData ? "⏳ Đang tải dữ liệu..." : lastSync ? `✓ Cập nhật lúc ${lastSync} · ${entries.length} hoạt động` : "Chưa đồng bộ"}
+                </div>
+                <button onClick={fetchFromSheet} disabled={loadingData}
+                  style={{background:BLUE,border:"none",borderRadius:6,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:11,padding:"6px 14px",cursor:"pointer",opacity:loadingData?0.5:1}}>
+                  🔄 Làm mới
+                </button>
+              </div>
+            )}
+
+            {/* KPI 4 ô */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
               {[
                 {label:"Lượt hoạt động", val:stats.total,    color:BLUE,      bg:BLUE_L,    icon:"🏃"},
@@ -594,8 +841,7 @@ export default function App() {
               ))}
             </div>
 
-            {/* So sánh khu vực */}
-            <div className="card" style={{marginBottom:14}}>
+            {isManager && <div className="card" style={{marginBottom:14}}>
               <div className="sec">So sánh khu vực</div>
               {byBranch.length === 0
                 ?<div style={{color:"#d1d5db",fontSize:13}}>Chưa có dữ liệu</div>
@@ -638,6 +884,8 @@ export default function App() {
                 </div>
               }
             </div>
+
+            }
 
             {/* Leaderboard NVKD */}
             <div className="card" style={{marginBottom:14}}>
@@ -775,8 +1023,7 @@ export default function App() {
               }
             </div>
 
-            {/* AI Report */}
-            <div className="card" style={{marginBottom:14,borderTop:`3px solid ${RED}`}}>
+            {isManager && <div className="card" style={{marginBottom:14,borderTop:`3px solid ${RED}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSummary?16:0}}>
                 <div>
                   <div className="sec" style={{marginBottom:3}}>AI Executive Report</div>
@@ -792,8 +1039,9 @@ export default function App() {
               </div>}
             </div>
 
-            {/* Detail table */}
-            <div className="card">
+            }
+
+            {isManager && <div className="card">
               <div className="sec">Chi tiết hoạt động ({filtered.length})</div>
               {filtered.length===0
                 ?<div style={{color:"#d1d5db",fontSize:13,textAlign:"center",padding:"28px 0"}}>Chưa có dữ liệu.</div>
@@ -829,7 +1077,7 @@ export default function App() {
                   </table>
                 </div>
               }
-            </div>
+            </div>}
           </>
         )}
       </div>
