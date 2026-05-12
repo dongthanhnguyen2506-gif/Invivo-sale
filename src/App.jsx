@@ -260,16 +260,24 @@ export default function App() {
       const ds = filtered.map((e,i) =>
         `${i+1}. CN:${e.branch}|Sale:${e.sale}|Ngày:${e.date}|KH:${e.customerName}|Loại KH:${e.customerType||"—"}|CK:${e.specialty}|Loại:${e.visitType||"—"}|KQ:${e.result}|Kỳ vọng:${e.conversionExpect||"—"}`
       ).join("\n");
+      const apiKey = import.meta.env.VITE_ANTHROPIC_KEY || "";
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key": apiKey,
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true",
+        },
         body: JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1400,
+          model:"claude-haiku-4-5-20251001", max_tokens:1400,
           messages:[{role:"user", content:`Bạn là chuyên gia phân tích cho Invivo Lab (4 khu vực: HN, HCM, Thái Nguyên-Phú Thọ, Gia Lai). Dữ liệu:\n\n${ds}\n\nViết báo cáo tiếng Việt cho CEO:\n1. TỔNG QUAN: lượt hoạt động, KH mới, KH cũ, cơ hội cao\n2. SO SÁNH KHU VỰC: điểm mạnh/yếu từng vùng\n3. CƠ HỘI CHUYỂN ĐỔI: top chuyên khoa, top NVKD\n4. RỦI RO: điểm yếu cần xử lý ngay\n5. HÀNH ĐỘNG TUẦN TỚI: 3 việc cụ thể\n\nSúc tích, có số liệu thực tế.`}]
         })
       });
       const j = await resp.json();
-      setAiSummary(j.content?.[0]?.text || "Không thể tạo báo cáo.");
-    } catch(_) { setAiSummary("Lỗi kết nối AI."); }
+      if (j.error) { setAiSummary("Lỗi API: " + j.error.message); }
+      else { setAiSummary(j.content?.[0]?.text || "Không thể tạo báo cáo."); }
+    } catch(err) { setAiSummary("Lỗi kết nối: " + err.message); }
     setLoadingAI(false);
   };
 
@@ -594,38 +602,44 @@ export default function App() {
               {bySale.length===0
                 ?<div style={{color:"#d1d5db",fontSize:13}}>Chưa có dữ liệu</div>
                 :<div>
-                  {/* Header row */}
-                  <div style={{display:"grid",gridTemplateColumns:"36px 1fr 60px 70px 70px 70px 70px 180px",gap:8,padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginBottom:6}}>
-                    {["#","NVKD","Activity","KH mới","KH cũ","Cơ hội cao","Follow-up","Điểm hiệu suất"].map(h=>(
-                      <div key={h} style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:".06em",textTransform:"uppercase"}}>{h}</div>
-                    ))}
-                  </div>
                   {bySale.map((s,i)=>{
                     const bc = branchColor(s.branch);
-                    const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":null;
+                    const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
                     const scoreColor = s.score>=75?"#0d7a4e":s.score>=50?BLUE:s.score>=30?"#b45309":RED;
+                    const cardBg = i===0?"#fffbeb":i===1?"#f8fafc":i===2?"#fdf4ff":"#fff";
+                    const cardBorder = i===0?"#fde68a":i===1?"#e5e7eb":i===2?"#e9d5ff":"#f1f5f9";
                     return (
-                      <div key={s.name} style={{display:"grid",gridTemplateColumns:"36px 1fr 60px 70px 70px 70px 70px 180px",gap:8,padding:"10px 12px",borderRadius:8,marginBottom:4,background:i===0?"#fffbeb":i===1?"#f8fafc":i===2?"#fdf4ff":"#fff",border:`1px solid ${i===0?"#fde68a":i===1?"#e5e7eb":i===2?"#e9d5ff":"#f1f5f9"}`}}>
-                        <div style={{fontWeight:800,fontSize:15,display:"flex",alignItems:"center"}}>{medal||<span style={{fontSize:12,color:"#9ca3af",fontWeight:700}}>{i+1}</span>}</div>
-                        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                          <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
-                          <span className="chip" style={{background:bc.bg,color:bc.color,borderColor:bc.border,fontSize:9,width:"fit-content",marginTop:2}}>{branchShort(s.branch)}</span>
+                      <div key={s.name} style={{padding:"14px 16px",borderRadius:10,marginBottom:8,background:cardBg,border:`1.5px solid ${cardBorder}`}}>
+                        {/* Row 1: rank + name + score */}
+                        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                          <div style={{fontSize:i<3?20:14,fontWeight:900,width:28,textAlign:"center",flexShrink:0}}>{medal}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:800,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.name}</div>
+                            <span className="chip" style={{background:bc.bg,color:bc.color,borderColor:bc.border,fontSize:9,marginTop:2,display:"inline-block"}}>{branchShort(s.branch)}</span>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <div style={{fontSize:20,fontWeight:900,color:scoreColor,lineHeight:1}}>{s.score}</div>
+                            <div style={{fontSize:10,color:"#9ca3af",fontWeight:600}}>/100</div>
+                          </div>
                         </div>
-                        <div style={{textAlign:"center",fontWeight:800,fontSize:16,color:BLUE,display:"flex",alignItems:"center",justifyContent:"center"}}>{s.count}</div>
-                        <div style={{textAlign:"center",fontWeight:700,color:"#0d7a4e",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.newKH}</div>
-                        <div style={{textAlign:"center",fontWeight:700,color:"#b45309",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.oldKH}</div>
-                        <div style={{textAlign:"center",fontWeight:700,color:RED,display:"flex",alignItems:"center",justifyContent:"center"}}>🔥 {s.highConv}</div>
-                        <div style={{textAlign:"center",color:"#6b7280",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.followUp}</div>
-                        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                            <div style={{display:"flex",gap:4}}>
-                              {[s.score>=75&&"🏆",s.score>=50&&s.score<75&&"⭐",s.score>=30&&s.score<50&&"📈",s.score<30&&"📉"].filter(Boolean)[0]}
+                        {/* Score bar */}
+                        <div style={{height:6,background:"#f1f5f9",borderRadius:3,marginBottom:10,overflow:"hidden"}}>
+                          <div style={{height:6,width:`${s.score}%`,borderRadius:3,background:`linear-gradient(90deg,${scoreColor},${scoreColor}88)`,transition:"width .7s ease"}}/>
+                        </div>
+                        {/* Row 2: stats grid */}
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,textAlign:"center"}}>
+                          {[
+                            {label:"HĐ",val:s.count,color:BLUE},
+                            {label:"KH mới",val:s.newKH,color:"#0d7a4e"},
+                            {label:"KH cũ",val:s.oldKH,color:"#b45309"},
+                            {label:"🔥 Cao",val:s.highConv,color:RED},
+                            {label:"Follow",val:s.followUp,color:"#6b7280"},
+                          ].map(({label,val,color})=>(
+                            <div key={label} style={{background:"#f8fafc",borderRadius:6,padding:"6px 2px"}}>
+                              <div style={{fontSize:16,fontWeight:900,color}}>{val}</div>
+                              <div style={{fontSize:9,color:"#9ca3af",fontWeight:600,marginTop:1}}>{label}</div>
                             </div>
-                            <span style={{fontSize:13,fontWeight:900,color:scoreColor}}>{s.score}<span style={{fontSize:10,fontWeight:600,color:"#9ca3af"}}>/100</span></span>
-                          </div>
-                          <div style={{height:8,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}>
-                            <div style={{height:8,width:`${s.score}%`,borderRadius:4,background:`linear-gradient(90deg,${scoreColor},${scoreColor}99)`,transition:"width .7s ease"}}/>
-                          </div>
+                          ))}
                         </div>
                       </div>
                     );
