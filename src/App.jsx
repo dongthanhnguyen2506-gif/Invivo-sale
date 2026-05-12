@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
+// ─── Logo (base64 embedded) ──────────────────────────────────────
+const LOGO_URL = "data:image/png;base64,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jJd0tYGHpJG7pkOObsYUi260sljLaOrZRSwMZGGyA77mMG9huOZfKSTx5ALgGp6qoG5d6OjucfImaINkA9T24I9683WigusLptPyy+UNG9JQTkGTHWY3Dg8ermpGyPN8DsXUcj77CsXMaLY227Mx75L10Nrfd5vLrhWspHV05bCSzPSyE8TjIwwE8XfFLTcxTw/JN5jfPbJeI+1Cf6yMn4civfZa6mrGR0FzpaeR9NCRTbwc10jmklsTnZ4DJPIAngMqWvdrrrnapaurkaJ45CIKVu7imbgFzXycAGtHJvUSBzyso47sxxZnf18Qd3YN/isXvs7BJp5cLe8vBVW+WuW11bYzI2aCVvSQTs9GVh5EfmOpR6sWnZWXSjdpuscGl7i+gkd/RTfY+67ljtwq/Ix8cjo5Glr2ktc0jiCOpU5WNAD2aHwPD3uVqNxza7UePWvFERQKVERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERFYN4WvRwDeFTdpDk9YgYeX9p38KgGgucAOJJwFO65LYr023s9Cgp46Yd4aC4/3iVYi+ljn8u/8AIFQyfU5rOfd+dl1aRpGilkqXQTVLZAWSRwtZP5meT48h44jIcD2L0amnZW1sFvoJX1wy0ROliInYTw6IuPFwHDGVL2jUVHFQw0jblLTsYwNAlgMTh1cJYTk/2mlRlhne03XUs75JJaZu7TukfvOM0mQ0knmWgE+wK6Qzo2xtOuvYMzv81UBfjc9w0055BeN4qY7JRvsNukBndwuFS0+m7+rafsjr7Sq4v0kkkkkk8yV+LXyyGQ8BuHBXY48A696LzhjkmlZFCx0kjyGta0ZJPYAvBT2gKern1bQ+RtYXxSdI4v5Bo9L3LyGPpJGs4leyPwMLuClrJpCnit89bql1Vbo+kZDCAADl31jkHh/qvOr0O+3Q1k8N8hdX0UZqWwxNIcIweDic+acdX/tcO0K7GqvFRSUV1qqu3l/SbkjyWNfxyG5+qOpfuzirugvb6G3to5HVjN2Xytpc3cbxPXk8OpbQfK9KIAy+69878td1lrz8x0ZmLrb7brc9N916a7d1FbJbnG1rbrSN3qxrRjp4/wCtA+0PreK6LPUT3a3w0r4KmtFHgR0keIadv7cr88ST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mnm13rCikWbJHRm7SsXsa8WctYobvYdRwUbKkS1c1K7fZTTSBsjnYxxBIZJ4g+rmoG/RWZt3fXXG83mC4B2/GH0e6WEejjqwPUqKpah1HeaSIQtrXTQD+hnAlZ4Ozj2LZHaIlbaVufH2R5qgKExm8Zy4ewfJXKxfJ+pLpBf2boulE0yVVK0calzWncewduQMj/w+ugo5S6zUFbBI58kst2r2OYSTjO6CPXjl61XYNSwNmbNLp+2iVpyJKffgcD2+Y7gps7SanoOiFt4Yxk1b8+PP3qzHU0xF5HZ9hz017vNQSQTg2Y3LtGWv38kt4vGn6ae5XC6NtMc5c+C3GMSdISc46PIDR1dXsXts9zZeqOppnaPaYqgtdUS00phiy05BJPBvM9ar9RquZ0rpoLVbIpXf0z4TNJ/ekJUXcrxdLlwra6eZo5MLsMHc0cB4Kua1kdgwkjhrfmdOTVMKV783AA93lrzKv2odX2uljnip6enqaqoINQ2BxMTyBgb8mAX8OoYHPis/u1yrLpVGorJTI7G60AYaxvU1o5AepcaKpU1stQfq04KzBSxwD6dUREVRWURERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERF//2Q==";
+
 // ─── PASTE YOUR APPS SCRIPT URL HERE ────────────────────────────
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0zgRMFN2FpvHp92-a3EPun_Q1iiJu9gMZGvp561_K5MO_Znsrc8gMYew/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
 // ─────────────────────────────────────────────────────────────────
 
 // ─── DEFAULT PINs (lần đầu đăng nhập) ───────────────────────────
@@ -301,7 +304,7 @@ export default function App() {
     branch:"", sale:"", date: new Date().toISOString().split("T")[0],
     ctvCode:"", customerName:"", address:"", district:"", phone:"",
     specialty:"", visitType:"", customerType:"", conversionExpect:"", result:"", notes:"",
-    photo:null, photoPreview:null,
+    photo:null, photoPreview:null, photoBase64:null, photoMime:null,
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -424,7 +427,17 @@ export default function App() {
   const handlePhoto = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setForm(prev => ({ ...prev, photo: file, photoPreview: ev.target.result }));
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      const base64 = dataUrl.split(",")[1];
+      setForm(prev => ({
+        ...prev,
+        photo: file,
+        photoPreview: dataUrl,
+        photoBase64: base64,
+        photoMime: file.type || "image/jpeg",
+      }));
+    };
     reader.readAsDataURL(file);
   };
 
@@ -433,20 +446,27 @@ export default function App() {
       alert("Vui lòng điền đầy đủ các trường bắt buộc (*)"); return;
     }
     setSubmitting(true);
-    const entry = { ...form, id: Date.now(), timestamp: new Date().toLocaleString("vi-VN") };
+    setSubmitting(true);
+    const entry = { ...form, id: Date.now(), timestamp: new Date().toLocaleString("vi-VN"), photoUrl:"" };
     const next = [entry, ...entries];
     setEntries(next); saveLocal(next);
     if (configured) {
       try {
-        const p = { ...entry }; delete p.photo; delete p.photoPreview;
-        await fetch(APPS_SCRIPT_URL, { method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"}, body: JSON.stringify(p) });
+        const p = { ...entry };
+        delete p.photo; delete p.photoPreview;
+        // photoBase64 + photoMime sent for Google Drive upload
+        await fetch(APPS_SCRIPT_URL, {
+          method:"POST", mode:"no-cors",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify(p)
+        });
       } catch(_) {}
     }
     setForm(prev => ({
       branch:prev.branch, sale:prev.sale, date:new Date().toISOString().split("T")[0],
       ctvCode:"", customerName:"", address:"", district:"", phone:"",
       specialty:"", visitType:"", customerType:"", conversionExpect:"", result:"", notes:"",
-      photo:null, photoPreview:null,
+      photo:null, photoPreview:null, photoBase64:null, photoMime:null,
     }));
     setSubmitting(false); setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
@@ -595,33 +615,47 @@ export default function App() {
 
   // ─── Login screen ───────────────────────────────────────────────
   if (!currentUser) {
-    const IS2 = {width:"100%",background:"#f8fafc",border:"1.5px solid #e5e7eb",borderRadius:9,padding:"12px 14px",color:"#111827",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif",outline:"none"};
+    // Shared input style for login - explicit font stack to prevent browser default serif
+    const loginInput = {
+      width:"100%", boxSizing:"border-box",
+      background:"#f8fafc", border:"1.5px solid #e5e7eb", borderRadius:9,
+      padding:"12px 14px", color:"#111827", fontSize:16,
+      fontFamily:"'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
+      outline:"none", appearance:"none", WebkitAppearance:"none", display:"block",
+    };
     return (
-      <div style={{fontFamily:"'Be Vietnam Pro',sans-serif",minHeight:"100vh",background:"linear-gradient(135deg,#eef2ff,#fff1f2)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:"#fff",borderRadius:20,padding:"36px 32px",maxWidth:400,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.1)",border:"1.5px solid #e5e7eb"}}>
-          {/* Logo - centered, large */}
-          <div style={{textAlign:"center",marginBottom:32}}>
-            <div style={{display:"inline-flex",alignItems:"center",gap:3,marginBottom:10}}>
-              <div style={{width:8,height:48,borderRadius:4,background:BLUE}}/>
-              <div style={{width:8,height:48,borderRadius:4,background:RED}}/>
-            </div>
-            <div style={{fontSize:28,fontWeight:900,letterSpacing:"-.03em",lineHeight:1}}>
-              <span style={{color:"#111827"}}>Invivo</span>{" "}
-              <span style={{color:RED}}>Lab</span>
-            </div>
-            <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginTop:6}}>
+      <div style={{fontFamily:"'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif",minHeight:"100vh",background:"linear-gradient(150deg,#f0f4ff 0%,#fff5f5 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",boxSizing:"border-box"}}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
+          *{box-sizing:border-box}
+          .login-card *{font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif !important}
+          .login-input{width:100%;display:block;box-sizing:border-box;background:#f8fafc;border:1.5px solid #e5e7eb;border-radius:9px;padding:12px 14px;color:#111827;font-size:16px;font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif !important;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
+          .login-input:focus{border-color:#1a56db}
+          .login-btn{width:100%;background:#1a56db;border:none;border-radius:9px;color:#fff;font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif !important;font-weight:700;font-size:16px;padding:14px;cursor:pointer;box-shadow:0 4px 14px rgba(26,86,219,.3);transition:all .2s}
+          .login-btn:hover{background:#1648c8;transform:translateY(-1px)}
+          .login-label{display:block;font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;font-family:'Be Vietnam Pro',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif !important}
+        `}</style>
+        <div className="login-card" style={{background:"#fff",borderRadius:20,padding:"36px 28px",maxWidth:420,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.1)",border:"1.5px solid #e5e7eb"}}>
+
+          {/* Real logo image */}
+          <div style={{textAlign:"center",marginBottom:28}}>
+            <img
+              src={LOGO_URL}
+              alt="Invivo Lab"
+              style={{maxWidth:200,width:"100%",height:"auto",display:"inline-block"}}
+            />
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginTop:10}}>
               Sales Activity System
             </div>
           </div>
 
-          <div style={{fontSize:16,fontWeight:800,color:"#111827",marginBottom:4}}>Đăng nhập</div>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:22}}>Chọn tên và nhập mã PIN 4 số của bạn</div>
+          <div style={{fontSize:17,fontWeight:800,color:"#111827",marginBottom:4}}>Đăng nhập</div>
+          <div style={{fontSize:13,color:"#6b7280",marginBottom:22}}>Chọn tên và nhập mã PIN 4 số của bạn</div>
 
           {/* Name dropdown */}
-          <div style={{marginBottom:12}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Họ tên</label>
-            <select style={IS2} value={loginName} onChange={e=>setLoginName(e.target.value)}
-              onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}>
+          <div style={{marginBottom:14}}>
+            <label className="login-label">Họ tên</label>
+            <select className="login-input" value={loginName} onChange={e=>setLoginName(e.target.value)}>
               <option value="">-- Chọn tên của bạn --</option>
               <option value="Board Management">👑 Board Management — Ban lãnh đạo</option>
               {Object.entries(SALE_BY_BRANCH).map(([branch, names]) => (
@@ -637,23 +671,28 @@ export default function App() {
           </div>
 
           {/* PIN input */}
-          <div style={{marginBottom:16}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b7280",letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Mã PIN</label>
-            <input type="password" inputMode="numeric" maxLength={4} style={IS2}
+          <div style={{marginBottom:18}}>
+            <label className="login-label">Mã PIN</label>
+            <input
+              type="password" inputMode="numeric" maxLength={4}
+              className="login-input"
               placeholder="4 chữ số" value={loginPin}
-              onChange={e=>setLoginPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+              onChange={e=>setLoginPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4))}
               onKeyDown={e=>e.key==="Enter"&&handleLogin()}
-              onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+            />
           </div>
 
-          {loginError && <div style={{fontSize:12,color:RED,marginBottom:12,fontWeight:600,padding:"8px 12px",background:"#fef2f2",borderRadius:7}}>⚠ {loginError}</div>}
+          {loginError && (
+            <div style={{fontSize:13,color:RED,marginBottom:14,fontWeight:600,padding:"10px 14px",background:"#fef2f2",borderRadius:8,border:"1px solid #fca5a5"}}>
+              ⚠ {loginError}
+            </div>
+          )}
 
-          <button onClick={handleLogin}
-            style={{width:"100%",background:BLUE,border:"none",borderRadius:9,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:15,padding:"13px",cursor:"pointer",boxShadow:"0 4px 14px rgba(26,86,219,.3)"}}>
+          <button className="login-btn" onClick={handleLogin}>
             Đăng nhập →
           </button>
 
-          <div style={{marginTop:18,padding:"12px 14px",background:"#f8fafc",borderRadius:8,fontSize:11,color:"#6b7280",lineHeight:1.8}}>
+          <div style={{marginTop:18,padding:"12px 14px",background:"#f8fafc",borderRadius:8,fontSize:12,color:"#6b7280",lineHeight:1.8}}>
             <strong style={{color:"#374151"}}>Lần đầu đăng nhập?</strong><br/>
             Dùng mã PIN do quản lý cấp. Sau khi vào, bạn có thể đổi PIN cá nhân.
           </div>
@@ -1220,7 +1259,7 @@ export default function App() {
                   :<div style={{overflowX:"auto"}}>
                     <table>
                       <thead>
-                        <tr>{["Ngày","NVKD","Khách hàng","Quận/Tỉnh","CK","Loại KH","Kỳ vọng","Kết quả"].map(h=><th key={h}>{h}</th>)}</tr>
+                        <tr>{["Ngày","NVKD","Khách hàng","Quận/Tỉnh","CK","Loại KH","Kỳ vọng","Kết quả","Ảnh"].map(h=><th key={h}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {filtered.map(e=>{
@@ -1239,6 +1278,15 @@ export default function App() {
                               <td><span className="chip" style={{background:"#f1f5f9",color:"#374151",borderColor:"#e5e7eb",fontSize:10}}>{e.customerType||"—"}</span></td>
                               <td style={{fontWeight:700,color:cvColor,fontSize:12}}>{e.conversionExpect==="Cao"?"🔥":e.conversionExpect==="Trung bình"?"⭐":"—"} {e.conversionExpect||"—"}</td>
                               <td><span className="chip" style={{background:tag.bg,color:tag.color,borderColor:tag.border}}>{e.result}</span></td>
+                              <td style={{textAlign:"center"}}>
+                                {e.photoUrl
+                                  ?<a href={e.photoUrl} target="_blank" rel="noreferrer"
+                                    style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
+                                    📷 Xem
+                                  </a>
+                                  :<span style={{color:"#d1d5db",fontSize:11}}>—</span>
+                                }
+                              </td>
                             </tr>
                           );
                         })}
@@ -1274,7 +1322,7 @@ export default function App() {
                 :<div style={{overflowX:"auto"}}>
                   <table>
                     <thead>
-                      <tr>{["KV","Ngày","NVKD","Mã CTV","Khách hàng","Quận/Tỉnh","CK","Loại KH","Kỳ vọng","Kết quả"].map(h=><th key={h}>{h}</th>)}</tr>
+                      <tr>{["KV","Ngày","NVKD","Mã CTV","Khách hàng","Quận/Tỉnh","CK","Loại KH","Kỳ vọng","Kết quả","Ảnh"].map(h=><th key={h}>{h}</th>)}</tr>
                     </thead>
                     <tbody>
                       {filtered.map(e=>{
@@ -1296,6 +1344,15 @@ export default function App() {
                             <td><span className="chip" style={{background:"#f1f5f9",color:"#374151",borderColor:"#e5e7eb",fontSize:10}}>{e.customerType||"—"}</span></td>
                             <td><span style={{fontWeight:700,color:cvColor,fontSize:12}}>{e.conversionExpect==="Cao"?"🔥":e.conversionExpect==="Trung bình"?"⭐":e.conversionExpect==="Thấp"?"📌":"—"} {e.conversionExpect||"—"}</span></td>
                             <td><span className="chip" style={{background:tag.bg,color:tag.color,borderColor:tag.border}}>{e.result}</span></td>
+                            <td style={{textAlign:"center"}}>
+                              {e.photoUrl
+                                ?<a href={e.photoUrl} target="_blank" rel="noreferrer"
+                                  style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
+                                  📷 Xem
+                                </a>
+                                :<span style={{color:"#d1d5db",fontSize:11}}>—</span>
+                              }
+                            </td>
                           </tr>
                         );
                       })}
