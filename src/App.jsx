@@ -7,29 +7,66 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0z
 // ─── DEFAULT PINs (lần đầu đăng nhập) ───────────────────────────
 // NVKD có thể đổi PIN sau khi đăng nhập lần đầu
 const DEFAULT_PINS = {
-  'Manager':            '7655',
-  'Nguyễn Văn Thuyết': '5750',
-  'Nguyễn Đức Quân':   '1947',
-  'Lê Anh Dũng':       '6535',
-  'Vương Văn Tiến':    '5318',
-  'Trần Việt Hảo':     '5540',
-  'Thúy Kiều':         '6641',
-  'Châu Kim Ngân':     '9903',
-  'Nguyễn Bá Phú':     '3515',
-  'Hà Ngọc Khuyến':   '8853',
-  'Vũ Thanh Tùng':     '7097',
-  'Ngọc Tuyết':        '6618',
-  'Huỳnh Ngọc Hải':    '8854',
+  // Board Management
+  'Board Management':      '0001',
+  // Sale Managers
+  'Trần Ngọc Bảo Trung':  '2301',  // SM HCM
+  'Nguyễn Văn Thuyết':    '5750',  // SM HN
+  'Huỳnh Ngọc Hải':       '8854',  // SM Gia Lai
+  'Hà Ngọc Khuyến':       '8853',  // SM TN-PT
+  // NVKD HN
+  'Nguyễn Đức Quân':      '1947',
+  'Lê Anh Dũng':          '6535',
+  'Vương Văn Tiến':       '5318',
+  // NVKD HCM
+  'Trần Việt Hảo':        '5540',
+  'Thúy Kiều':            '6641',
+  'Châu Kim Ngân':        '9903',
+  'Nguyễn Bá Phú':        '3515',
+  // NVKD TN-PT
+  'Vũ Thanh Tùng':        '7097',
+  // NVKD Gia Lai
+  'Ngọc Tuyết':           '6618',
 };
+
+// Role definitions
+const ROLE_MAP = {
+  'Board Management': 'board',     // thấy tất cả mọi thứ
+  'Trần Ngọc Bảo Trung': 'sm',    // Sale Manager HCM
+  'Nguyễn Văn Thuyết':   'sm',    // Sale Manager HN
+  'Huỳnh Ngọc Hải':      'sm',    // Sale Manager Gia Lai
+  'Hà Ngọc Khuyến':      'sm',    // Sale Manager TN-PT
+};
+// không có trong ROLE_MAP → NVKD thường
 
 // ─── CONFIG ───────────────────────────────────────────────────────
 const BRANCHES = ["Hà Nội", "Hồ Chí Minh", "Thái Nguyên - Phú Thọ", "Gia Lai"];
 
+// Sale Manager của từng khu vực (hiển thị đầu tiên)
+const SALE_MANAGER_BY_BRANCH = {
+  "Hà Nội":                "Nguyễn Văn Thuyết",
+  "Hồ Chí Minh":           "Trần Ngọc Bảo Trung",
+  "Thái Nguyên - Phú Thọ": "Hà Ngọc Khuyến",
+  "Gia Lai":                "Huỳnh Ngọc Hải",
+};
+
 const SALE_BY_BRANCH = {
-  "Hà Nội":                ["Nguyễn Văn Thuyết", "Nguyễn Đức Quân", "Lê Anh Dũng", "Vương Văn Tiến"],
-  "Hồ Chí Minh":           ["Trần Việt Hảo", "Thúy Kiều", "Châu Kim Ngân", "Nguyễn Bá Phú"],
-  "Thái Nguyên - Phú Thọ": ["Hà Ngọc Khuyến", "Vũ Thanh Tùng"],
-  "Gia Lai":                ["Ngọc Tuyết", "Huỳnh Ngọc Hải"],
+  "Hà Nội": [
+    "Nguyễn Văn Thuyết",   // Sale Manager
+    "Nguyễn Đức Quân", "Lê Anh Dũng", "Vương Văn Tiến",
+  ],
+  "Hồ Chí Minh": [
+    "Trần Ngọc Bảo Trung", // Sale Manager
+    "Trần Việt Hảo", "Thúy Kiều", "Châu Kim Ngân", "Nguyễn Bá Phú",
+  ],
+  "Thái Nguyên - Phú Thọ": [
+    "Hà Ngọc Khuyến",      // Sale Manager
+    "Vũ Thanh Tùng",
+  ],
+  "Gia Lai": [
+    "Huỳnh Ngọc Hải",      // Sale Manager
+    "Ngọc Tuyết",
+  ],
 };
 
 const DISTRICTS_BY_BRANCH = {
@@ -156,7 +193,11 @@ export default function App() {
   const [newPin1, setNewPin1] = useState("");
   const [newPin2, setNewPin2] = useState("");
   const [pinChangeMsg, setPinChangeMsg] = useState("");
-  const isManager = currentUser === "Manager";
+  const userRole = currentUser ? (ROLE_MAP[currentUser] || "nvkd") : null;
+  const isBoard = userRole === "board";
+  const isSaleManager = userRole === "sm";
+  const isManager = isBoard || isSaleManager; // both see dashboard fully
+  const userBranch = currentUser ? Object.keys(SALE_BY_BRANCH).find(b => SALE_BY_BRANCH[b].includes(currentUser)) : null;
 
   // Load custom PINs from localStorage (overrides DEFAULT_PINS)
   const getEffectivePins = () => {
@@ -200,7 +241,7 @@ export default function App() {
 
   // ─── Login ─────────────────────────────────────────────────────
   const allNVKD = Object.values(SALE_BY_BRANCH).flat();
-  const allUsers = ["Manager", ...allNVKD];
+  const allUsers = ["Board Management", ...allNVKD];
 
   const handleLogin = () => {
     const name = loginName.trim();
@@ -208,7 +249,8 @@ export default function App() {
     if (!name) { setLoginError("Vui lòng chọn tên."); return; }
     if (!pin || pin.length !== 4) { setLoginError("PIN phải đúng 4 số."); return; }
     const pins = getEffectivePins();
-    if (!allUsers.includes(name)) { setLoginError("Tên không hợp lệ."); return; }
+    const validUsers = ["Board Management", ...Object.values(SALE_BY_BRANCH).flat()];
+    if (!validUsers.includes(name)) { setLoginError("Tên không hợp lệ."); return; }
     if (pins[name] !== pin) { setLoginError("PIN không đúng. Liên hệ quản lý nếu quên PIN."); return; }
     // Login success
     setCurrentUser(name);
@@ -237,19 +279,27 @@ export default function App() {
 
   // ─── Fetch data from Google Sheet ──────────────────────────────
   const fetchFromSheet = async () => {
-    if (!configured) return;
+    if (!configured) {
+      // Not connected - load from localStorage only
+      try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(_) {}
+      return;
+    }
     setLoadingData(true);
     try {
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=read", { method:"GET", mode:"cors" });
-      const json = await resp.json();
+      const url = APPS_SCRIPT_URL + "?t=" + Date.now(); // cache bust
+      const resp = await fetch(url, { method:"GET" });
+      const text = await resp.text();
+      const json = JSON.parse(text);
       if (json.data && Array.isArray(json.data)) {
         setEntries(json.data);
         setLastSync(new Date().toLocaleTimeString("vi-VN"));
         try { localStorage.setItem("iv3", JSON.stringify(json.data)); } catch(_) {}
+      } else {
+        throw new Error(json.error || "No data");
       }
-    } catch(_) {
-      // fallback to localStorage
-      try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(__) {}
+    } catch(err) {
+      console.warn("Sheet sync failed:", err.message);
+      try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(_) {}
     }
     setLoadingData(false);
   };
@@ -462,10 +512,14 @@ export default function App() {
             <select style={IS2} value={loginName} onChange={e=>setLoginName(e.target.value)}
               onFocus={e=>e.target.style.borderColor=BLUE} onBlur={e=>e.target.style.borderColor="#e5e7eb"}>
               <option value="">-- Chọn tên của bạn --</option>
-              <option value="Manager">👑 Manager (Quản lý)</option>
+              <option value="Board Management">👑 Board Management — Ban lãnh đạo</option>
               {Object.entries(SALE_BY_BRANCH).map(([branch, names]) => (
-                <optgroup key={branch} label={branch}>
-                  {names.map(n => <option key={n} value={n}>{n}</option>)}
+                <optgroup key={branch} label={`📍 ${branch}`}>
+                  {names.map(n => (
+                    <option key={n} value={n}>
+                      {SALE_MANAGER_BY_BRANCH[branch]===n ? `⭐ ${n} — Sale Manager` : n}
+                    </option>
+                  ))}
                 </optgroup>
               ))}
             </select>
@@ -604,7 +658,7 @@ export default function App() {
               {isManager?"👑 Manager":`👤 ${currentUser}`}
             </div>
             <button onClick={()=>setShowChangePIN(true)} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#6b7280",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🔐 PIN</button>
-            <button onClick={()=>{setCurrentUser(null);setLoginPin("");setLoginName("");}} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#9ca3af",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Thoát</button>
+            <button onClick={()=>{setCurrentUser(null);setLoginPin("");setLoginName("");setAiSummary("");}} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#9ca3af",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Thoát</button>
           </div>
         </div>
       </div>
