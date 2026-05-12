@@ -585,61 +585,53 @@ export default function App() {
               }
             </div>
 
-            {/* Heatmap NVKD */}
+            {/* Leaderboard NVKD */}
             <div className="card" style={{marginBottom:14}}>
-              <div className="sec">Heatmap NVKD</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                <div className="sec" style={{marginBottom:0}}>Bảng xếp hạng NVKD</div>
+                <div style={{fontSize:10,color:"#9ca3af",fontWeight:600}}>Performance Score = Volume(25) + Type(20) + Result(35) + Conversion(20)</div>
+              </div>
               {bySale.length===0
                 ?<div style={{color:"#d1d5db",fontSize:13}}>Chưa có dữ liệu</div>
-                :<div style={{overflowX:"auto"}}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>NVKD</th>
-                        <th>Khu vực</th>
-                        <th>Hôm nay</th>
-                        <th>Tuần này</th>
-                        <th>Tổng HĐ</th>
-                        <th>KH mới</th>
-                        <th>KH cũ</th>
-                        <th>CK chính</th>
-                        <th>Cơ hội cao</th>
-                        <th>Follow-up</th>
-                        <th>Performance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bySale.map((s,i)=>{
-                        const bc = branchColor(s.branch);
-                        const sc = s.score>=75?"score-high":s.score>=50?"score-mid":s.score>=30?"score-low":"score-bad";
-                        return (
-                          <tr key={s.name} className="heatmap-row">
-                            <td style={{color:"#9ca3af",fontWeight:700}}>{i+1}</td>
-                            <td style={{fontWeight:700}}>{s.name}</td>
-                            <td><span className="chip" style={{background:bc.bg,color:bc.color,borderColor:bc.border,fontSize:9}}>{branchShort(s.branch)}</span></td>
-                            <td style={{textAlign:"center",fontWeight:700,color:s.today>0?"#0d7a4e":"#d1d5db"}}>{s.today}</td>
-                            <td style={{textAlign:"center",fontWeight:700,color:BLUE}}>{s.week}</td>
-                            <td style={{textAlign:"center",fontWeight:700}}>{s.count}</td>
-                            <td style={{textAlign:"center",fontWeight:700,color:"#0d7a4e"}}>{s.newKH}</td>
-                            <td style={{textAlign:"center",fontWeight:700,color:"#b45309"}}>{s.oldKH}</td>
-                            <td style={{fontSize:11,color:"#6b7280"}}>{s.topSpec}</td>
-                            <td style={{textAlign:"center",fontWeight:700,color:RED}}>{s.highConv}</td>
-                            <td style={{textAlign:"center",color:"#6b7280"}}>{s.followUp}</td>
-                            <td style={{minWidth:120}}>
-                              <ScoreBar score={s.score}/>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                :<div>
+                  {/* Header row */}
+                  <div style={{display:"grid",gridTemplateColumns:"36px 1fr 60px 70px 70px 70px 70px 180px",gap:8,padding:"8px 12px",background:"#f8fafc",borderRadius:8,marginBottom:6}}>
+                    {["#","NVKD","Activity","KH mới","KH cũ","Cơ hội cao","Follow-up","Điểm hiệu suất"].map(h=>(
+                      <div key={h} style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:".06em",textTransform:"uppercase"}}>{h}</div>
+                    ))}
+                  </div>
+                  {bySale.map((s,i)=>{
+                    const bc = branchColor(s.branch);
+                    const medal = i===0?"🥇":i===1?"🥈":i===2?"🥉":null;
+                    const scoreColor = s.score>=75?"#0d7a4e":s.score>=50?BLUE:s.score>=30?"#b45309":RED;
+                    return (
+                      <div key={s.name} style={{display:"grid",gridTemplateColumns:"36px 1fr 60px 70px 70px 70px 70px 180px",gap:8,padding:"10px 12px",borderRadius:8,marginBottom:4,background:i===0?"#fffbeb":i===1?"#f8fafc":i===2?"#fdf4ff":"#fff",border:`1px solid ${i===0?"#fde68a":i===1?"#e5e7eb":i===2?"#e9d5ff":"#f1f5f9"}`}}>
+                        <div style={{fontWeight:800,fontSize:15,display:"flex",alignItems:"center"}}>{medal||<span style={{fontSize:12,color:"#9ca3af",fontWeight:700}}>{i+1}</span>}</div>
+                        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                          <div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
+                          <span className="chip" style={{background:bc.bg,color:bc.color,borderColor:bc.border,fontSize:9,width:"fit-content",marginTop:2}}>{branchShort(s.branch)}</span>
+                        </div>
+                        <div style={{textAlign:"center",fontWeight:800,fontSize:16,color:BLUE,display:"flex",alignItems:"center",justifyContent:"center"}}>{s.count}</div>
+                        <div style={{textAlign:"center",fontWeight:700,color:"#0d7a4e",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.newKH}</div>
+                        <div style={{textAlign:"center",fontWeight:700,color:"#b45309",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.oldKH}</div>
+                        <div style={{textAlign:"center",fontWeight:700,color:RED,display:"flex",alignItems:"center",justifyContent:"center"}}>🔥 {s.highConv}</div>
+                        <div style={{textAlign:"center",color:"#6b7280",display:"flex",alignItems:"center",justifyContent:"center"}}>{s.followUp}</div>
+                        <div style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                            <div style={{display:"flex",gap:4}}>
+                              {[s.score>=75&&"🏆",s.score>=50&&s.score<75&&"⭐",s.score>=30&&s.score<50&&"📈",s.score<30&&"📉"].filter(Boolean)[0]}
+                            </div>
+                            <span style={{fontSize:13,fontWeight:900,color:scoreColor}}>{s.score}<span style={{fontSize:10,fontWeight:600,color:"#9ca3af"}}>/100</span></span>
+                          </div>
+                          <div style={{height:8,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}>
+                            <div style={{height:8,width:`${s.score}%`,borderRadius:4,background:`linear-gradient(90deg,${scoreColor},${scoreColor}99)`,transition:"width .7s ease"}}/>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               }
-              {bySale.length>0&&(
-                <div style={{marginTop:14,padding:"12px 14px",background:"#f8fafc",borderRadius:8,fontSize:11,color:"#6b7280",lineHeight:1.6}}>
-                  <strong style={{color:"#374151"}}>Công thức Performance Score/100:</strong> Activity Volume (25đ) + Activity Type (20đ) + Visit Result (35đ) + Conversion Expectation (20đ)
-                </div>
-              )}
             </div>
 
             {/* Chuyên khoa */}
@@ -647,7 +639,8 @@ export default function App() {
               <div className="sec">Chuyên khoa tiếp cận</div>
               {bySpec.length===0
                 ?<div style={{color:"#d1d5db",fontSize:13}}>Chưa có dữ liệu</div>
-                :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
+                :<div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:20}}>
                   <div>
                     <div style={{fontSize:11,fontWeight:700,color:"#9ca3af",marginBottom:12,textTransform:"uppercase",letterSpacing:".06em"}}>Top theo số lượt</div>
                     {bySpec.map(({name,count})=>(
@@ -666,13 +659,58 @@ export default function App() {
                       <div key={name} style={{marginBottom:11}}>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
                           <span style={{fontWeight:500}}>{name}</span>
-                          <span style={{fontWeight:700,color:RED}}>{high} <span style={{color:"#9ca3af",fontWeight:400,fontSize:11}}>/ {count}</span></span>
+                          <span style={{fontWeight:700,color:RED}}>{high}<span style={{color:"#9ca3af",fontWeight:400,fontSize:11}}> / {count}</span></span>
                         </div>
                         <div className="bar-bg"><div className="bar-red" style={{width:`${(high/(stats.highConv||1))*100}%`}}/></div>
                       </div>
                     ))}
                     {bySpec.every(x=>x.high===0)&&<div style={{color:"#d1d5db",fontSize:13}}>Chưa có cơ hội cao</div>}
                   </div>
+                  </div>
+                {/* Summary table */}
+                <div style={{marginTop:20,borderTop:"1px solid #f1f5f9",paddingTop:16}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#9ca3af",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>Bảng tổng hợp chuyên khoa</div>
+                  <div style={{overflowX:"auto"}}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Chuyên khoa</th>
+                          <th style={{textAlign:"center"}}>Số lượt</th>
+                          <th style={{textAlign:"center"}}>KH mới</th>
+                          <th style={{textAlign:"center"}}>KH cũ</th>
+                          <th style={{textAlign:"center"}}>Cơ hội cao</th>
+                          <th>Phân bổ KH</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bySpec.map(({name,count,high})=>{
+                          const newKH=filtered.filter(e=>e.specialty===name&&e.customerType==="KH mới").length;
+                          const oldKH=filtered.filter(e=>e.specialty===name&&["KH cũ","KH tái kích hoạt"].includes(e.customerType)).length;
+                          return (
+                            <tr key={name}>
+                              <td style={{fontWeight:600}}>{name}</td>
+                              <td style={{textAlign:"center",fontWeight:800,color:BLUE}}>{count}</td>
+                              <td style={{textAlign:"center",fontWeight:700,color:"#0d7a4e"}}>{newKH}</td>
+                              <td style={{textAlign:"center",fontWeight:700,color:"#b45309"}}>{oldKH}</td>
+                              <td style={{textAlign:"center",fontWeight:700,color:RED}}>🔥 {high}</td>
+                              <td>
+                                <div style={{display:"flex",gap:2,alignItems:"center",height:10}}>
+                                  {newKH>0&&<div style={{height:10,width:`${(newKH/count)*100}%`,background:"#0d7a4e",borderRadius:"3px 0 0 3px",minWidth:4}}/>}
+                                  {oldKH>0&&<div style={{height:10,width:`${(oldKH/count)*100}%`,background:"#f59e0b",minWidth:4}}/>}
+                                  {(count-newKH-oldKH)>0&&<div style={{height:10,flex:1,background:"#e5e7eb",borderRadius:"0 3px 3px 0",minWidth:4}}/>}
+                                </div>
+                                <div style={{fontSize:9,color:"#9ca3af",marginTop:2,display:"flex",gap:6}}>
+                                  <span style={{color:"#0d7a4e"}}>■ Mới</span>
+                                  <span style={{color:"#f59e0b"}}>■ Cũ</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 </div>
               }
             </div>
