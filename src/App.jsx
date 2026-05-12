@@ -349,28 +349,45 @@ export default function App() {
   };
 
   // ─── Fetch data from Google Sheet ──────────────────────────────
+  const [syncError, setSyncError] = useState("");
+
   const fetchFromSheet = async () => {
     if (!configured) {
-      // Not connected - load from localStorage only
       try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(_) {}
+      setSyncError("Chưa kết nối Google Sheet.");
       return;
     }
     setLoadingData(true);
+    setSyncError("");
     try {
-      const url = APPS_SCRIPT_URL + "?t=" + Date.now(); // cache bust
-      const resp = await fetch(url, { method:"GET" });
+      // Apps Script doGet — must use no-cors workaround via iframe trick or
+      // direct fetch (works when Script is deployed as "Anyone" access)
+      const url = APPS_SCRIPT_URL + "?t=" + Date.now();
+      const resp = await fetch(url, {
+        method: "GET",
+        redirect: "follow",
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const text = await resp.text();
-      const json = JSON.parse(text);
+      let json;
+      try { json = JSON.parse(text); }
+      catch(_) { throw new Error("Phản hồi không phải JSON. Kiểm tra Apps Script URL."); }
       if (json.data && Array.isArray(json.data)) {
-        setEntries([...json.data]); // spread to force new array reference
+        setEntries([...json.data]);
         setLastSync(new Date().toLocaleTimeString("vi-VN"));
         setRefreshKey(k => k + 1);
+        setSyncError("");
         try { localStorage.setItem("iv3", JSON.stringify(json.data)); } catch(_) {}
+      } else if (json.error) {
+        throw new Error(json.error);
       } else {
-        throw new Error(json.error || "No data");
+        throw new Error("Không có dữ liệu từ Sheet.");
       }
     } catch(err) {
-      console.warn("Sheet sync failed:", err.message);
+      const msg = err.message || "Lỗi không xác định";
+      setSyncError(msg.includes("Failed to fetch")
+        ? "Không thể kết nối — kiểm tra Apps Script đã deploy với quyền Anyone chưa."
+        : msg);
       try { const c = localStorage.getItem("iv3"); if (c) setEntries(JSON.parse(c)); } catch(_) {}
     }
     setLoadingData(false);
@@ -563,15 +580,18 @@ export default function App() {
     return (
       <div style={{fontFamily:"'Be Vietnam Pro',sans-serif",minHeight:"100vh",background:"linear-gradient(135deg,#eef2ff,#fff1f2)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"#fff",borderRadius:20,padding:"36px 32px",maxWidth:400,width:"100%",boxShadow:"0 8px 40px rgba(0,0,0,.1)",border:"1.5px solid #e5e7eb"}}>
-          {/* Logo */}
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:28}}>
-            <div style={{display:"flex",gap:2}}>
-              <div style={{width:10,height:36,borderRadius:3,background:BLUE}}/>
-              <div style={{width:10,height:36,borderRadius:3,background:RED,marginLeft:2}}/>
+          {/* Logo - centered, large */}
+          <div style={{textAlign:"center",marginBottom:32}}>
+            <div style={{display:"inline-flex",alignItems:"center",gap:3,marginBottom:10}}>
+              <div style={{width:8,height:48,borderRadius:4,background:BLUE}}/>
+              <div style={{width:8,height:48,borderRadius:4,background:RED}}/>
             </div>
-            <div>
-              <div style={{fontWeight:900,fontSize:18,letterSpacing:"-.02em"}}>Invivo <span style={{color:BLUE}}>Lab</span></div>
-              <div style={{fontSize:10,color:"#9ca3af",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase"}}>Sales Activity System</div>
+            <div style={{fontSize:28,fontWeight:900,letterSpacing:"-.03em",lineHeight:1}}>
+              <span style={{color:"#111827"}}>Invivo</span>{" "}
+              <span style={{color:RED}}>Lab</span>
+            </div>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",marginTop:6}}>
+              Sales Activity System
             </div>
           </div>
 
@@ -666,34 +686,64 @@ export default function App() {
         .score-mid{color:${BLUE};font-weight:900}
         .score-low{color:#b45309;font-weight:900}
         .score-bad{color:${RED};font-weight:900}
+        @media (max-width:640px){.desktop-nav{display:none!important}.mobile-tabs{display:flex!important}}
+        @media (min-width:641px){.mobile-tabs{display:none!important}.desktop-nav{display:flex!important}}
       `}</style>
 
-      {/* TOPBAR */}
-      <div style={{background:"#fff",borderBottom:"1.5px solid #e5e7eb",padding:"0 24px",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:60}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:2}}>
-              <div style={{width:10,height:36,borderRadius:3,background:BLUE}}/>
-              <div style={{width:10,height:36,borderRadius:3,background:RED,marginLeft:2}}/>
+      {/* TOPBAR — top bar with logo + user info */}
+      <div style={{background:"#fff",borderBottom:"1.5px solid #e5e7eb",padding:"0 16px",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:52}}>
+          {/* Logo */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}>
+              <div style={{width:6,height:28,borderRadius:2,background:BLUE}}/>
+              <div style={{width:6,height:28,borderRadius:2,background:RED}}/>
             </div>
-            <div>
-              <div style={{fontWeight:900,fontSize:16,letterSpacing:"-.02em"}}>Invivo <span style={{color:BLUE}}>Lab</span></div>
-              <div style={{fontSize:9,color:"#9ca3af",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase"}}>Sales Activity · Toàn quốc</div>
+            <div style={{fontWeight:900,fontSize:15,letterSpacing:"-.02em",lineHeight:1}}>
+              <span style={{color:"#111827"}}>Invivo</span>{" "}
+              <span style={{color:RED}}>Lab</span>
             </div>
           </div>
-          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+
+          {/* Desktop nav tabs (hidden on mobile via CSS) */}
+          <div className="desktop-nav" style={{display:"flex",gap:6,alignItems:"center"}}>
             <button className={`nav-btn ${view==="form"?"on":""}`} onClick={()=>setView("form")}>📝 Nhập liệu</button>
             <button className={`nav-btn ${view==="dashboard"?"on":""}`} onClick={()=>setView("dashboard")}>
-              📊 Dashboard{entries.length>0&&<span style={{marginLeft:6,background:view==="dashboard"?"rgba(255,255,255,.25)":BLUE,color:"#fff",borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:800}}>{entries.length}</span>}
+              📊 Dashboard{entries.length>0&&<span style={{marginLeft:5,background:view==="dashboard"?"rgba(255,255,255,.25)":BLUE,color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:800}}>{entries.length}</span>}
             </button>
-            <div style={{height:24,width:1,background:"#e5e7eb",margin:"0 4px"}}/>
-            <div style={{fontSize:12,color:"#6b7280",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {isManager?"👑 Manager":`👤 ${currentUser}`}
+          </div>
+
+          {/* User info + actions */}
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {isBoard?"👑":isSaleManager?"⭐":"👤"} {currentUser==="Board Management"?"Board":currentUser.split(" ").pop()}
             </div>
-            <button onClick={()=>setShowChangePIN(true)} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#6b7280",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🔐 PIN</button>
-            <button onClick={()=>{setCurrentUser(null);setLoginPin("");setLoginName("");setAiSummary("");}} style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#9ca3af",fontSize:11,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>Thoát</button>
+            <button onClick={()=>setShowChangePIN(true)}
+              style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#6b7280",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0}}>
+              🔐
+            </button>
+            <button onClick={()=>{setCurrentUser(null);setLoginPin("");setLoginName("");setAiSummary("");}}
+              style={{background:"transparent",border:"1px solid #e5e7eb",borderRadius:6,color:"#9ca3af",fontSize:11,padding:"5px 8px",cursor:"pointer",fontFamily:"inherit",fontWeight:600,flexShrink:0}}>
+              ✕
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* BOTTOM TAB BAR — mobile only */}
+      <div className="mobile-tabs" style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderTop:"1.5px solid #e5e7eb",zIndex:50,display:"flex",boxShadow:"0 -2px 12px rgba(0,0,0,.06)"}}>
+        <button onClick={()=>setView("form")}
+          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"10px 0 8px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit",
+            color:view==="form"?BLUE:"#9ca3af",borderTop:view==="form"?`2px solid ${BLUE}`:"2px solid transparent"}}>
+          <span style={{fontSize:22}}>📝</span>
+          <span style={{fontSize:10,fontWeight:700,marginTop:2}}>Nhập liệu</span>
+        </button>
+        <button onClick={()=>setView("dashboard")}
+          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"10px 0 8px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"inherit",
+            color:view==="dashboard"?BLUE:"#9ca3af",borderTop:view==="dashboard"?`2px solid ${BLUE}`:"2px solid transparent"}}>
+          <span style={{fontSize:22}}>📊</span>
+          <span style={{fontSize:10,fontWeight:700,marginTop:2}}>Dashboard{entries.length>0?` (${entries.length})`:""}</span>
+        </button>
       </div>
 
       <ChangePINModal
@@ -704,7 +754,7 @@ export default function App() {
       />
       {submitted && <div className="toast">✅ Đã ghi nhận hoạt động!</div>}
 
-      <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 24px"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 16px 90px"}}> {/* 90px bottom = space for mobile tab bar */}
 
         {/* ══════════ FORM ══════════ */}
         {view === "form" && (
@@ -905,17 +955,26 @@ export default function App() {
             </div>
 
                         {/* Sync bar */}
-            {configured && (
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,padding:"10px 14px",background:"#f0f7ff",borderRadius:8,border:"1px solid #dbeafe"}}>
-                <div style={{fontSize:12,color:"#1a56db",fontWeight:600}}>
-                  {loadingData ? "⏳ Đang tải dữ liệu..." : lastSync ? `✓ Cập nhật lúc ${lastSync} · ${entries.length} hoạt động` : "Chưa đồng bộ"}
-                </div>
+            <div style={{marginBottom:14,padding:"10px 14px",borderRadius:8,border:"1px solid",
+              background: syncError ? "#fef2f2" : configured ? "#f0f7ff" : "#f8fafc",
+              borderColor: syncError ? "#fca5a5" : configured ? "#dbeafe" : "#e5e7eb",
+              display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+              <div style={{fontSize:12,fontWeight:600,color:syncError?RED:configured?"#1a56db":"#9ca3af",flex:1}}>
+                {loadingData
+                  ? "⏳ Đang tải dữ liệu từ Google Sheet..."
+                  : syncError
+                    ? `⚠ ${syncError}`
+                    : lastSync
+                      ? `✓ Cập nhật lúc ${lastSync} · ${entries.length} hoạt động`
+                      : configured ? "Chưa đồng bộ — bấm Làm mới" : "⚠ Chưa kết nối Google Sheet"}
+              </div>
+              {configured && (
                 <button onClick={fetchFromSheet} disabled={loadingData}
-                  style={{background:BLUE,border:"none",borderRadius:6,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:11,padding:"6px 14px",cursor:"pointer",opacity:loadingData?0.5:1}}>
+                  style={{background:loadingData?"#9ca3af":BLUE,border:"none",borderRadius:6,color:"#fff",fontFamily:"inherit",fontWeight:700,fontSize:11,padding:"6px 14px",cursor:loadingData?"not-allowed":"pointer",whiteSpace:"nowrap"}}>
                   🔄 Làm mới
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* KPI 4 ô */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
