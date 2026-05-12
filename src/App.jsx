@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0zgRMFN2FpvHp92-a3EPun_Q1iiJu9gMZGvp561_K5MO_Znsrc8gMYew/exec";
 
 // ─── CONFIG ───────────────────────────────────────────────────────
 const BRANCHES = ["Hà Nội", "Hồ Chí Minh", "Thái Nguyên - Phú Thọ", "Gia Lai"];
