@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CTV_ACTIVE_DATA } from "./ctvActive.js";
 import { CTV_POOL_DATA } from "./ctvPool.js";
-import { KYCDrawer, CUSTOMER_TIERS, WALLET_RANGES } from "./KYC.jsx";
+import { KYCDrawer, CUSTOMER_TIERS, WALLET_RANGES, syncCRMToSheet } from "./KYC.jsx";
 
 // ─── Pipeline stages ─────────────────────────────────────────────
 export const PIPELINE_STAGES = [
@@ -222,7 +222,8 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
   const saveKYC = (updatedKH) => {
     const updated = customers.map(k => k.id === updatedKH.id ? updatedKH : k);
     save(updated);
-    setKycKH(updatedKH); // keep drawer open with updated data
+    setKycKH(updatedKH);
+    // KYC.jsx handleSave already calls syncKYCToSheet — no need to duplicate
   };
 
   // Auto-import new customers from activities
@@ -343,6 +344,9 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
       };
     });
     save(updated);
+    // Sync CRM stage to Sheet
+    const updatedKH = updated.find(k => k.id === selectedKH.id);
+    if (updatedKH) syncCRMToSheet(updatedKH).catch(()=>{});
     setShowActivityModal(false); setSaveMsg("");
   };
 
