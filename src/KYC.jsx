@@ -1,5 +1,52 @@
 import { useState, useEffect } from "react";
 
+// ─── Sync KYC to Google Sheet ─────────────────────────────────────
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzW0L9dN_cfHb0zgRMFN2FpvHp92-a3EPun_Q1iiJu9gMZGvp561_K5MO_Znsrc8gMYew/exec";
+
+export async function syncKYCToSheet(kh) {
+  if (APPS_SCRIPT_URL.includes("YOUR_SCRIPT_ID")) return;
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action:    "kyc",
+        ctvCode:   kh.ctvCode  || "",
+        name:      kh.name     || "",
+        branch:    kh.branch   || "",
+        nvkd:      kh.nvkd     || "",
+        phone:     kh.phone    || "",
+        updatedBy: kh.kyc?.updatedBy || kh.nvkd || "",
+        kyc:       kh.kyc      || {},
+      }),
+    });
+  } catch(_) {}
+}
+
+export async function syncCRMToSheet(kh) {
+  if (APPS_SCRIPT_URL.includes("YOUR_SCRIPT_ID")) return;
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action:        "crm",
+        ctvCode:       kh.ctvCode || "",
+        name:          kh.name   || "",
+        branch:        kh.branch || "",
+        nvkd:          kh.nvkd   || "",
+        phone:         kh.phone  || "",
+        stage:         kh.stage  || "",
+        nextFollowUp:  kh.nextFollowUp  || "",
+        followUpNote:  kh.followUpNote  || "",
+        updatedBy:     kh.nvkd   || "",
+      }),
+    });
+  } catch(_) {}
+}
+
 // ─── Constants ───────────────────────────────────────────────────
 const BLUE = "#1a56db";
 const RED  = "#c0392b";
@@ -191,9 +238,12 @@ export default function KYCPanel({
   };
 
   const handleSave = () => {
-    onSave({ ...kh, kyc: { ...kyc, updatedAt: new Date().toISOString(), updatedBy: currentUser } });
+    const updatedKH = { ...kh, kyc: { ...kyc, updatedAt: new Date().toISOString(), updatedBy: currentUser } };
+    onSave(updatedKH);
     setDirty(false);
     setSaved(true);
+    // Sync to Google Sheet in background
+    syncKYCToSheet(updatedKH);
     setTimeout(() => setSaved(false), 2000);
   };
 
@@ -524,4 +574,3 @@ export function KYCDrawer({ kh, onSave, onClose, canEditTier, currentUser }) {
     </>
   );
 }
-
