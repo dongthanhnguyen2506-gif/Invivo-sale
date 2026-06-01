@@ -450,22 +450,35 @@ export default function App() {
       alert("Vui lòng điền đầy đủ các trường bắt buộc (*)"); return;
     }
     setSubmitting(true);
-    setSubmitting(true);
-    const entry = { ...form, id: Date.now(), timestamp: new Date().toLocaleString("vi-VN"), photoUrl:"" };
+    const entryId = Date.now();
+
+    // ── Bước 1: Ghi activity NGAY — không chờ ảnh ─────────────────
+    const entry = {
+      ...form, id: entryId,
+      timestamp: new Date().toLocaleString("vi-VN"),
+      photoUrl: form.photoBase64 ? "pending" : "", // "pending" = có ảnh đang upload
+    };
     const next = [entry, ...entries];
     setEntries(next); saveLocal(next);
+
     if (configured) {
       try {
         const p = { ...entry };
-        delete p.photo; delete p.photoPreview;
-        // photoBase64 + photoMime sent for Google Drive upload
+        delete p.photo; delete p.photoPreview; delete p.photoBase64; delete p.photoMime;
         await fetch(APPS_SCRIPT_URL, {
           method:"POST", mode:"no-cors",
           headers:{"Content-Type":"application/json"},
-          body: JSON.stringify(p)
+          body: JSON.stringify(p),
         });
       } catch(_) {}
     }
+
+    // Reset form ngay — NVKD không cần chờ upload ảnh
+    const savedBase64  = form.photoBase64;
+    const savedMime    = form.photoMime || "image/jpeg";
+    const savedSale    = form.sale;
+    const savedDate    = form.date;
+
     setForm(prev => ({
       branch:prev.branch, sale:prev.sale, date:new Date().toISOString().split("T")[0],
       ctvCode:"", customerName:"", address:"", district:"", phone:"",
@@ -474,6 +487,45 @@ export default function App() {
     }));
     setSubmitting(false); setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
+
+    // ── Bước 2: Upload ảnh BACKGROUND — SM xem được từ mọi thiết bị
+    if (configured && savedBase64) {
+      (async () => {
+        try {
+          const uploadResp = await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action:      "upload_photo",
+              photoBase64: savedBase64,
+              photoMime:   savedMime,
+              sale:        savedSale,
+              date:        savedDate,
+              id:          String(entryId),
+            }),
+          });
+          const uploadData = await uploadResp.json();
+          if (uploadData.photoUrl) {
+            // Cập nhật link ảnh vào Sheet (patch theo ID)
+            await fetch(APPS_SCRIPT_URL, {
+              method:"POST", mode:"no-cors",
+              headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({
+                action:   "patch_photo",
+                id:       String(entryId),
+                photoUrl: uploadData.photoUrl,
+              }),
+            });
+            // Cập nhật local state
+            setEntries(prev => prev.map(e =>
+              String(e.id) === String(entryId)
+                ? { ...e, photoUrl: uploadData.photoUrl }
+                : e
+            ));
+          }
+        } catch(_) {}
+      })();
+    }
   };
 
   // ─── Filtered data ───────────────────────────────────────────────
@@ -1309,12 +1361,14 @@ export default function App() {
                               <td style={{fontWeight:700,color:cvColor,fontSize:12}}>{e.conversionExpect==="Cao"?"🔥":e.conversionExpect==="Trung bình"?"⭐":"—"} {e.conversionExpect||"—"}</td>
                               <td><span className="chip" style={{background:tag.bg,color:tag.color,borderColor:tag.border}}>{e.result}</span></td>
                               <td style={{textAlign:"center"}}>
-                                {e.photoUrl
-                                  ?<a href={e.photoUrl} target="_blank" rel="noreferrer"
-                                    style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
-                                    📷 Xem
-                                  </a>
-                                  :<span style={{color:"#d1d5db",fontSize:11}}>—</span>
+                                {e.photoUrl === "pending"
+                                  ? <span style={{color:"#b45309",fontSize:11,fontWeight:600}}>⏳ Đang upload</span>
+                                  : e.photoUrl
+                                    ? <a href={e.photoUrl} target="_blank" rel="noreferrer"
+                                        style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
+                                        📷 Xem
+                                      </a>
+                                    : <span style={{color:"#d1d5db",fontSize:11}}>—</span>
                                 }
                               </td>
                             </tr>
@@ -1375,12 +1429,14 @@ export default function App() {
                             <td><span style={{fontWeight:700,color:cvColor,fontSize:12}}>{e.conversionExpect==="Cao"?"🔥":e.conversionExpect==="Trung bình"?"⭐":e.conversionExpect==="Thấp"?"📌":"—"} {e.conversionExpect||"—"}</span></td>
                             <td><span className="chip" style={{background:tag.bg,color:tag.color,borderColor:tag.border}}>{e.result}</span></td>
                             <td style={{textAlign:"center"}}>
-                              {e.photoUrl
-                                ?<a href={e.photoUrl} target="_blank" rel="noreferrer"
-                                  style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
-                                  📷 Xem
-                                </a>
-                                :<span style={{color:"#d1d5db",fontSize:11}}>—</span>
+                              {e.photoUrl === "pending"
+                                ? <span style={{color:"#b45309",fontSize:11,fontWeight:600}}>⏳ Đang upload</span>
+                                : e.photoUrl
+                                  ? <a href={e.photoUrl} target="_blank" rel="noreferrer"
+                                      style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 10px",background:"#eaf0ff",borderRadius:6,color:"#1a56db",fontSize:11,fontWeight:700,textDecoration:"none",border:"1px solid #bfdbfe"}}>
+                                      📷 Xem
+                                    </a>
+                                  : <span style={{color:"#d1d5db",fontSize:11}}>—</span>
                               }
                             </td>
                           </tr>
