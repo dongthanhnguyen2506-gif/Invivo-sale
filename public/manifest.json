@@ -1,7 +1,7 @@
 {
-  "name": "Invivo Lab CRM",
-  "short_name": "Invivo Lab",
-  "description": "Sales Activity & CRM System — Invivo Lab",
+  "name": "CRM",
+  "short_name": "CRM",
+  "description": "Invivo Lab — Sales CRM System",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
