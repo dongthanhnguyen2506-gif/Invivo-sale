@@ -452,33 +452,16 @@ export default function App() {
     setSubmitting(true);
     const entryId = Date.now();
 
-    // ── Bước 1: Ghi activity NGAY — không chờ ảnh ─────────────────
+    // Ghi vào local state ngay
     const entry = {
       ...form, id: entryId,
       timestamp: new Date().toLocaleString("vi-VN"),
-      photoUrl: form.photoBase64 ? "pending" : "", // "pending" = có ảnh đang upload
+      photoUrl: form.photoBase64 ? "pending" : "",
     };
-    const next = [entry, ...entries];
-    setEntries(next); saveLocal(next);
+    setEntries(prev => [entry, ...prev]);
+    saveLocal([entry, ...entries]);
 
-    if (configured) {
-      try {
-        const p = { ...entry };
-        delete p.photo; delete p.photoPreview; delete p.photoBase64; delete p.photoMime;
-        await fetch(APPS_SCRIPT_URL, {
-          method:"POST", mode:"no-cors",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify(p),
-        });
-      } catch(_) {}
-    }
-
-    // Reset form ngay — NVKD không cần chờ upload ảnh
-    const savedBase64  = form.photoBase64;
-    const savedMime    = form.photoMime || "image/jpeg";
-    const savedSale    = form.sale;
-    const savedDate    = form.date;
-
+    // Reset form ngay — NVKD không cần chờ
     setForm(prev => ({
       branch:prev.branch, sale:prev.sale, date:new Date().toISOString().split("T")[0],
       ctvCode:"", customerName:"", address:"", district:"", phone:"",
@@ -488,44 +471,22 @@ export default function App() {
     setSubmitting(false); setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
 
-    // ── Bước 2: Upload ảnh BACKGROUND — SM xem được từ mọi thiết bị
-    if (configured && savedBase64) {
-      (async () => {
-        try {
-          const uploadResp = await fetch(APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action:      "upload_photo",
-              photoBase64: savedBase64,
-              photoMime:   savedMime,
-              sale:        savedSale,
-              date:        savedDate,
-              id:          String(entryId),
-            }),
-          });
-          const uploadData = await uploadResp.json();
-          if (uploadData.photoUrl) {
-            // Cập nhật link ảnh vào Sheet (patch theo ID)
-            await fetch(APPS_SCRIPT_URL, {
-              method:"POST", mode:"no-cors",
-              headers:{"Content-Type":"application/json"},
-              body: JSON.stringify({
-                action:   "patch_photo",
-                id:       String(entryId),
-                photoUrl: uploadData.photoUrl,
-              }),
-            });
-            // Cập nhật local state
-            setEntries(prev => prev.map(e =>
-              String(e.id) === String(entryId)
-                ? { ...e, photoUrl: uploadData.photoUrl }
-                : e
-            ));
-          }
-        } catch(_) {}
-      })();
-    }
+    if (!configured) return;
+
+    // Gửi 1 POST duy nhất kèm cả ảnh base64
+    // Apps Script tự upload Drive rồi patch URL vào Sheet theo ID
+    try {
+      const payload = { ...entry };
+      delete payload.photo;
+      delete payload.photoPreview;
+      // Giữ lại photoBase64 + photoMime để Apps Script upload Drive
+      await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        mode:   "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch(_) {}
   };
 
   // ─── Filtered data ───────────────────────────────────────────────
