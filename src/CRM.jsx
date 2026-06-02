@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { CTV_ACTIVE_DATA } from "./ctvActive.js";
-import { CTV_POOL_DATA } from "./ctvPool.js";
 import { KYCDrawer, CUSTOMER_TIERS, WALLET_RANGES, syncCRMToSheet } from "./KYC.jsx";
 
 // ─── Pipeline stages ─────────────────────────────────────────────
@@ -171,48 +170,22 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
   const [saveMsg, setSaveMsg] = useState("");
   const [kycKH, setKycKH] = useState(null); // KH currently open in KYC drawer
 
-  // Load from localStorage — seed CTV data if first time
+  // Load from localStorage — seed CTV active data if first time
   useEffect(() => {
-    const seedAndLoad = async () => {
-      try {
-        const saved = localStorage.getItem("iv_crm");
-        const hasSeeded = localStorage.getItem("iv_crm_seeded");
-
-        // Load pool data lazily for board/admin only
-        let poolData = [];
-        if (isBoard) {
-          try {
-            const { CTV_POOL_DATA } = await import("./ctvPool.js");
-            poolData = CTV_POOL_DATA;
-          } catch(_) {}
-        }
-
-        if (saved && hasSeeded) {
-          const parsed = JSON.parse(saved);
-          // If board: merge pool data that's not already in list
-          if (isBoard && poolData.length > 0) {
-            const existingCodes = new Set(parsed.map(k => k.ctvCode).filter(Boolean));
-            const poolToAdd = poolData.filter(c => !existingCodes.has(c.ctvCode));
-            if (poolToAdd.length > 0) {
-              const merged = [...parsed, ...poolToAdd];
-              setCustomers(merged);
-              return;
-            }
-          }
-          setCustomers(parsed);
-        } else {
-          // First time — seed active + pool (for board)
-          const base = [...CTV_ACTIVE_DATA, ...(isBoard ? poolData : [])];
-          setCustomers(base);
-          try { localStorage.setItem("iv_crm", JSON.stringify(base)); } catch(_) {}
-          localStorage.setItem("iv_crm_seeded", "1");
-        }
-      } catch(_) {
+    try {
+      const saved = localStorage.getItem("iv_crm");
+      const hasSeeded = localStorage.getItem("iv_crm_seeded");
+      if (saved && hasSeeded) {
+        setCustomers(JSON.parse(saved));
+      } else {
         setCustomers(CTV_ACTIVE_DATA);
+        try { localStorage.setItem("iv_crm", JSON.stringify(CTV_ACTIVE_DATA)); } catch(_) {}
+        localStorage.setItem("iv_crm_seeded", "1");
       }
-    };
-    seedAndLoad();
-  }, [isBoard]);
+    } catch(_) {
+      setCustomers(CTV_ACTIVE_DATA);
+    }
+  }, []);
 
   const save = (list) => {
     setCustomers(list);
@@ -273,11 +246,8 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
     });
   }, [entries]);
 
-  // Scope by role
-  // Pool data (poolData=true) → only Admin/Board can see
-  const visibleCustomers = (isBoard)
-    ? customers
-    : customers.filter(k => !k.poolData);  // hide pool from SM and NVKD
+  // Scope by role — Pool data đã bỏ, chỉ còn active
+  const visibleCustomers = customers;  // hide pool from SM and NVKD
 
   const scopedCustomers = isBoard
     ? visibleCustomers
@@ -420,7 +390,7 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
             <h1 style={{fontSize:21,fontWeight:900,letterSpacing:"-.025em"}}>CRM Khách hàng</h1>
           </div>
           <p style={{color:"#6b7280",fontSize:13,marginLeft:14}}>
-            {scopedCustomers.filter(k=>!k.poolData).length} KH active{isBoard ? ` · ${scopedCustomers.filter(k=>k.poolData).length} Pool` : ""} · {reminders.length > 0 ? <span style={{color:RED,fontWeight:700}}>⚠ {reminders.length} cần follow-up</span> : "Không có reminder"}
+            {scopedCustomers.length} KH active · {reminders.length > 0 ? <span style={{color:RED,fontWeight:700}}>⚠ {reminders.length} cần follow-up</span> : "Không có reminder"}
           </p>
         </div>
         <button onClick={openAdd}
@@ -469,29 +439,9 @@ export default function CRM({ entries, currentUser, isBoard, isSaleManager, isNV
             ? <div style={{textAlign:"center",padding:"40px 0",color:"#d1d5db",fontSize:14}}>
                 Chưa có khách hàng. Bấm "+ Thêm" hoặc nhập activity để auto-import.
               </div>
-            : (() => {
-              const regular = filtered.filter(k => !k.poolData);
-              const pool    = filtered.filter(k => k.poolData);
-              return <>
-                {regular.map(kh=>(
-                  <KHCard key={kh.id} kh={kh} onEdit={openEdit} onAddActivity={openActivity} onOpenKYC={openKYC}/>
-                ))}
-                {pool.length > 0 && isBoard && (
-                  <>
-                    <div style={{display:"flex",alignItems:"center",gap:10,margin:"18px 0 10px",padding:"10px 14px",background:"#f8fafc",borderRadius:8,border:"1px solid #e5e7eb"}}>
-                      <span style={{fontSize:16}}>🏢</span>
-                      <div>
-                        <div style={{fontWeight:700,fontSize:13,color:"#374151"}}>Invivo Pool Data</div>
-                        <div style={{fontSize:11,color:"#9ca3af"}}>{pool.length} CTV chưa có NVKD phụ trách · Chỉ Admin/Ban lãnh đạo thấy</div>
-                      </div>
-                    </div>
-                    {pool.map(kh=>(
-                      <KHCard key={kh.id} kh={kh} onEdit={openEdit} onAddActivity={openActivity} onOpenKYC={openKYC}/>
-                    ))}
-                  </>
-                )}
-              </>;
-            })()
+            : filtered.map(kh=>(
+              <KHCard key={kh.id} kh={kh} onEdit={openEdit} onAddActivity={openActivity} onOpenKYC={openKYC}/>
+            ))
           }
         </div>
       )}
